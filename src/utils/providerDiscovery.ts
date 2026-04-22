@@ -1,5 +1,10 @@
 import type { OllamaModelDescriptor } from './providerRecommendation.ts'
 import { DEFAULT_OPENAI_BASE_URL } from '../services/api/providerConfig.js'
+import {
+  hasCustomAuthHeader,
+  parseCustomHeadersEnv,
+  sanitizeCustomHeaders,
+} from './customHeaders.js'
 
 export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434'
 export const DEFAULT_ATOMIC_CHAT_BASE_URL = 'http://127.0.0.1:1337'
@@ -223,18 +228,23 @@ export async function listOllamaModels(
 export async function listOpenAICompatibleModels(options?: {
   baseUrl?: string
   apiKey?: string
+  headers?: Record<string, string>
 }): Promise<string[] | null> {
   const { signal, clear } = withTimeoutSignal(5000)
   try {
+    const headers: Record<string, string> = {
+      ...parseCustomHeadersEnv(process.env.OPENAI_CUSTOM_HEADERS),
+      ...(sanitizeCustomHeaders(options?.headers) ?? {}),
+    }
+    if (options?.apiKey && !hasCustomAuthHeader(headers, options.apiKey)) {
+      headers.Authorization = `Bearer ${options.apiKey}`
+    }
+
     const response = await fetch(
       `${getOpenAICompatibleModelsBaseUrl(options?.baseUrl)}/models`,
       {
         method: 'GET',
-        headers: options?.apiKey
-          ? {
-              Authorization: `Bearer ${options.apiKey}`,
-            }
-          : undefined,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
         signal,
       },
     )

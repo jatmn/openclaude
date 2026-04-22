@@ -22,6 +22,10 @@ import {
   sanitizeApiKey,
   sanitizeProviderConfigValue,
 } from './providerSecrets.js'
+import {
+  formatCustomHeadersEnv,
+  parseCustomHeadersEnv,
+} from './customHeaders.js'
 
 export {
   maskSecretForDisplay,
@@ -50,6 +54,7 @@ const PROFILE_ENV_KEYS = [
   'OPENAI_BASE_URL',
   'OPENAI_MODEL',
   'OPENAI_API_KEY',
+  'OPENAI_CUSTOM_HEADERS',
   'CODEX_API_KEY',
   'CODEX_CREDENTIAL_SOURCE',
   'CHATGPT_ACCOUNT_ID',
@@ -87,6 +92,7 @@ export type ProfileEnv = {
   OPENAI_BASE_URL?: string
   OPENAI_MODEL?: string
   OPENAI_API_KEY?: string
+  OPENAI_CUSTOM_HEADERS?: string
   CODEX_API_KEY?: string
   CODEX_CREDENTIAL_SOURCE?: 'oauth' | 'existing'
   CHATGPT_ACCOUNT_ID?: string
@@ -242,6 +248,7 @@ export function buildGeminiProfileEnv(options: {
   model?: string | null
   baseUrl?: string | null
   apiKey?: string | null
+  headers?: Record<string, string> | null
   authMode?: 'api-key' | 'access-token' | 'adc'
   processEnv?: NodeJS.ProcessEnv
 }): ProfileEnv | null {
@@ -277,6 +284,13 @@ export function buildGeminiProfileEnv(options: {
     env.GEMINI_BASE_URL = baseUrl
   }
 
+  const customHeaders =
+    formatCustomHeadersEnv(options.headers) ??
+    formatCustomHeadersEnv(parseCustomHeadersEnv(processEnv.OPENAI_CUSTOM_HEADERS))
+  if (customHeaders) {
+    env.OPENAI_CUSTOM_HEADERS = customHeaders
+  }
+
   return env
 }
 
@@ -285,6 +299,7 @@ export function buildOpenAIProfileEnv(options: {
   model?: string | null
   baseUrl?: string | null
   apiKey?: string | null
+  headers?: Record<string, string> | null
   processEnv?: NodeJS.ProcessEnv
 }): ProfileEnv | null {
   const processEnv = options.processEnv ?? process.env
@@ -303,6 +318,9 @@ export function buildOpenAIProfileEnv(options: {
     processEnv.OPENAI_BASE_URL,
     secretSource,
   )
+  const shellOpenAICustomHeaders = formatCustomHeadersEnv(
+    parseCustomHeadersEnv(processEnv.OPENAI_CUSTOM_HEADERS),
+  )
   const shellOpenAIRequest = resolveProviderRequest({
     model: shellOpenAIModel,
     baseUrl: shellOpenAIBaseUrl,
@@ -310,7 +328,7 @@ export function buildOpenAIProfileEnv(options: {
   })
   const useShellOpenAIConfig = shellOpenAIRequest.transport === 'chat_completions'
 
-  return {
+  const env: ProfileEnv = {
     OPENAI_BASE_URL:
       sanitizeProviderConfigValue(options.baseUrl, secretSource) ||
       (useShellOpenAIConfig ? shellOpenAIBaseUrl : undefined) ||
@@ -321,6 +339,15 @@ export function buildOpenAIProfileEnv(options: {
       defaultModel,
     OPENAI_API_KEY: key,
   }
+
+  const customHeaders =
+    formatCustomHeadersEnv(options.headers) ||
+    (useShellOpenAIConfig ? shellOpenAICustomHeaders : undefined)
+  if (customHeaders) {
+    env.OPENAI_CUSTOM_HEADERS = customHeaders
+  }
+
+  return env
 }
 
 export function buildCodexProfileEnv(options: {
@@ -362,6 +389,7 @@ export function buildMistralProfileEnv(options: {
   model?: string | null
   baseUrl?: string | null
   apiKey?: string | null
+  headers?: Record<string, string> | null
   processEnv?: NodeJS.ProcessEnv
 }): ProfileEnv | null {
   const processEnv = options.processEnv ?? process.env
@@ -389,6 +417,13 @@ export function buildMistralProfileEnv(options: {
     )
   if (baseUrl) {
     env.MISTRAL_BASE_URL = baseUrl
+  }
+
+  const customHeaders =
+    formatCustomHeadersEnv(options.headers) ??
+    formatCustomHeadersEnv(parseCustomHeadersEnv(processEnv.OPENAI_CUSTOM_HEADERS))
+  if (customHeaders) {
+    env.OPENAI_CUSTOM_HEADERS = customHeaders
   }
 
   return env
@@ -549,6 +584,12 @@ export async function buildLaunchEnv(options: {
     processEnv.OPENAI_BASE_URL,
     processEnv as SecretValueSource,
   )
+  const persistedOpenAICustomHeaders = formatCustomHeadersEnv(
+    parseCustomHeadersEnv(persistedEnv.OPENAI_CUSTOM_HEADERS),
+  )
+  const shellOpenAICustomHeaders = formatCustomHeadersEnv(
+    parseCustomHeadersEnv(processEnv.OPENAI_CUSTOM_HEADERS),
+  )
   const persistedGeminiModel = sanitizeProviderConfigValue(
     persistedEnv.GEMINI_MODEL,
     persistedEnv,
@@ -637,6 +678,12 @@ export async function buildLaunchEnv(options: {
     delete env.OPENAI_BASE_URL
     delete env.OPENAI_MODEL
     delete env.OPENAI_API_KEY
+    if (shellOpenAICustomHeaders || persistedOpenAICustomHeaders) {
+      env.OPENAI_CUSTOM_HEADERS =
+        shellOpenAICustomHeaders || persistedOpenAICustomHeaders
+    } else {
+      delete env.OPENAI_CUSTOM_HEADERS
+    }
     delete env.CODEX_API_KEY
     delete env.CHATGPT_ACCOUNT_ID
     delete env.CODEX_ACCOUNT_ID
@@ -700,6 +747,12 @@ export async function buildLaunchEnv(options: {
     delete env.OPENAI_BASE_URL
     delete env.OPENAI_MODEL
     delete env.OPENAI_API_KEY
+    if (shellOpenAICustomHeaders || persistedOpenAICustomHeaders) {
+      env.OPENAI_CUSTOM_HEADERS =
+        shellOpenAICustomHeaders || persistedOpenAICustomHeaders
+    } else {
+      delete env.OPENAI_CUSTOM_HEADERS
+    }
     delete env.CODEX_API_KEY
     delete env.CHATGPT_ACCOUNT_ID
     delete env.CODEX_ACCOUNT_ID
@@ -725,6 +778,12 @@ export async function buildLaunchEnv(options: {
   delete env.GEMINI_MODEL
   delete env.GEMINI_BASE_URL
   delete env.GOOGLE_API_KEY
+  if (shellOpenAICustomHeaders || persistedOpenAICustomHeaders) {
+    env.OPENAI_CUSTOM_HEADERS =
+      shellOpenAICustomHeaders || persistedOpenAICustomHeaders
+  } else {
+    delete env.OPENAI_CUSTOM_HEADERS
+  }
 
   if (options.profile === 'ollama') {
     const getOllamaBaseUrl =
@@ -737,6 +796,7 @@ export async function buildLaunchEnv(options: {
       persistedOpenAIModel ||
       (await resolveOllamaModel(options.goal))
 
+    delete env.OPENAI_CUSTOM_HEADERS
     delete env.OPENAI_API_KEY
     delete env.CODEX_API_KEY
     delete env.CHATGPT_ACCOUNT_ID
@@ -757,6 +817,7 @@ export async function buildLaunchEnv(options: {
       (await resolveModel()) ||
       ''
 
+    delete env.OPENAI_CUSTOM_HEADERS
     delete env.OPENAI_API_KEY
     delete env.CODEX_API_KEY
     delete env.CHATGPT_ACCOUNT_ID
@@ -771,6 +832,7 @@ export async function buildLaunchEnv(options: {
         ? persistedOpenAIBaseUrl
         : DEFAULT_CODEX_BASE_URL
     env.OPENAI_MODEL = persistedOpenAIModel || 'codexplan'
+    delete env.OPENAI_CUSTOM_HEADERS
     delete env.OPENAI_API_KEY
 
     const codexKey =
@@ -824,6 +886,12 @@ export async function buildLaunchEnv(options: {
     (usePersistedOpenAIConfig ? persistedOpenAIModel : undefined) ||
     defaultOpenAIModel
   env.OPENAI_API_KEY = processEnv.OPENAI_API_KEY || persistedEnv.OPENAI_API_KEY
+  if (shellOpenAICustomHeaders || persistedOpenAICustomHeaders) {
+    env.OPENAI_CUSTOM_HEADERS =
+      shellOpenAICustomHeaders || persistedOpenAICustomHeaders
+  } else {
+    delete env.OPENAI_CUSTOM_HEADERS
+  }
   delete env.CODEX_API_KEY
   delete env.CHATGPT_ACCOUNT_ID
   delete env.CODEX_ACCOUNT_ID

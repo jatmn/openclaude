@@ -8,11 +8,13 @@ async function loadProviderDiscoveryModule() {
 const originalFetch = globalThis.fetch
 const originalEnv = {
   OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+  OPENAI_CUSTOM_HEADERS: process.env.OPENAI_CUSTOM_HEADERS,
 }
 
 afterEach(() => {
   globalThis.fetch = originalFetch
   process.env.OPENAI_BASE_URL = originalEnv.OPENAI_BASE_URL
+  process.env.OPENAI_CUSTOM_HEADERS = originalEnv.OPENAI_CUSTOM_HEADERS
 })
 
 test('lists models from a local openai-compatible /models endpoint', async () => {
@@ -58,6 +60,65 @@ test('returns null when a local openai-compatible /models request fails', async 
   await expect(
     listOpenAICompatibleModels({ baseUrl: 'http://localhost:1234/v1' }),
   ).resolves.toBeNull()
+})
+
+test('lists models with OPENAI_CUSTOM_HEADERS applied', async () => {
+  const { listOpenAICompatibleModels } = await loadProviderDiscoveryModule()
+  process.env.OPENAI_CUSTOM_HEADERS = 'api-key: provider-api-key'
+
+  globalThis.fetch = mock((input, init) => {
+    const url = typeof input === 'string' ? input : input.url
+    expect(url).toBe('http://localhost:1234/v1/models')
+    expect(init?.headers).toEqual({
+      'api-key': 'provider-api-key',
+    })
+
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          data: [{ id: 'qwen2.5-coder-7b-instruct' }],
+        }),
+        { status: 200 },
+      ),
+    )
+  }) as typeof globalThis.fetch
+
+  await expect(
+    listOpenAICompatibleModels({
+      baseUrl: 'http://localhost:1234/v1',
+      apiKey: 'local-key',
+    }),
+  ).resolves.toEqual(['qwen2.5-coder-7b-instruct'])
+})
+
+test('keeps Authorization for model discovery when custom headers are not auth headers', async () => {
+  const { listOpenAICompatibleModels } = await loadProviderDiscoveryModule()
+  process.env.OPENAI_CUSTOM_HEADERS = 'X-Provider-Org: demo-team'
+
+  globalThis.fetch = mock((input, init) => {
+    const url = typeof input === 'string' ? input : input.url
+    expect(url).toBe('http://localhost:1234/v1/models')
+    expect(init?.headers).toEqual({
+      'X-Provider-Org': 'demo-team',
+      Authorization: 'Bearer local-key',
+    })
+
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          data: [{ id: 'qwen2.5-coder-7b-instruct' }],
+        }),
+        { status: 200 },
+      ),
+    )
+  }) as typeof globalThis.fetch
+
+  await expect(
+    listOpenAICompatibleModels({
+      baseUrl: 'http://localhost:1234/v1',
+      apiKey: 'local-key',
+    }),
+  ).resolves.toEqual(['qwen2.5-coder-7b-instruct'])
 })
 
 test('detects LM Studio from the default localhost port', async () => {

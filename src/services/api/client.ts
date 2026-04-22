@@ -11,6 +11,7 @@ import {
 } from 'src/utils/auth.js'
 import { getUserAgent } from 'src/utils/http.js'
 import { getSmallFastModel } from 'src/utils/model/model.js'
+import { parseCustomHeadersEnv, sanitizeCustomHeaders } from 'src/utils/customHeaders.js'
 import {
   getAPIProvider,
   isFirstPartyAnthropicBaseUrl,
@@ -103,17 +104,25 @@ export async function getAnthropicClient({
   model?: string
   fetchOverride?: ClientOptions['fetch']
   source?: string
-  providerOverride?: { model: string; baseURL: string; apiKey: string }
+  providerOverride?: {
+    model: string
+    baseURL: string
+    apiKey: string
+    headers?: Record<string, string>
+  }
 }): Promise<Anthropic> {
   const containerId = process.env.CLAUDE_CODE_CONTAINER_ID
   const remoteSessionId = process.env.CLAUDE_CODE_REMOTE_SESSION_ID
   const clientApp = process.env.CLAUDE_AGENT_SDK_CLIENT_APP
-  const customHeaders = getCustomHeaders()
+  const anthropicCustomHeaders = getAnthropicCustomHeaders()
+  const openaiCustomHeaders = providerOverride
+    ? sanitizeCustomHeaders(providerOverride.headers) ?? {}
+    : getOpenAICompatibleCustomHeaders()
   const defaultHeaders: { [key: string]: string } = {
     'x-app': 'cli',
     'User-Agent': getUserAgent(),
     'X-Claude-Code-Session-Id': getSessionId(),
-    ...customHeaders,
+    ...anthropicCustomHeaders,
     ...(containerId ? { 'x-claude-remote-container-id': containerId } : {}),
     ...(remoteSessionId
       ? { 'x-claude-remote-session-id': remoteSessionId }
@@ -124,7 +133,7 @@ export async function getAnthropicClient({
 
   // Log API client configuration for HFI debugging
   logForDebugging(
-    `[API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: ${!!process.env.ANTHROPIC_CUSTOM_HEADERS}, has Authorization header: ${!!customHeaders['Authorization']}`,
+    `[API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: ${!!process.env.ANTHROPIC_CUSTOM_HEADERS}, OPENAI_CUSTOM_HEADERS present: ${!!process.env.OPENAI_CUSTOM_HEADERS}, has Authorization header: ${!!anthropicCustomHeaders['Authorization']}`,
   )
 
   // Add additional protection header if enabled via env var
@@ -170,6 +179,7 @@ export async function getAnthropicClient({
     }
     return createOpenAIShimClient({
       defaultHeaders: safeHeaders,
+      customHeaders: openaiCustomHeaders,
       maxRetries,
       timeout: parseInt(process.env.API_TIMEOUT_MS || String(600 * 1000), 10),
       providerOverride,
@@ -203,6 +213,7 @@ export async function getAnthropicClient({
     const { createOpenAIShimClient } = await import('./openaiShim.js')
     return createOpenAIShimClient({
       defaultHeaders,
+      customHeaders: openaiCustomHeaders,
       maxRetries,
       timeout: parseInt(process.env.API_TIMEOUT_MS || String(600 * 1000), 10),
     }) as unknown as Anthropic
@@ -390,30 +401,21 @@ async function configureApiKeyHeaders(
   }
 }
 
-function getCustomHeaders(): Record<string, string> {
-  const customHeaders: Record<string, string> = {}
-  const customHeadersEnv = process.env.ANTHROPIC_CUSTOM_HEADERS
+function getAnthropicCustomHeaders(): Record<string, string> {
+  return parseCustomHeadersEnv(process.env.ANTHROPIC_CUSTOM_HEADERS)
+}
 
-  if (!customHeadersEnv) return customHeaders
-
-  // Split by newlines to support multiple headers
-  const headerStrings = customHeadersEnv.split(/\n|\r\n/)
-
-  for (const headerString of headerStrings) {
-    if (!headerString.trim()) continue
-
-    // Parse header in format "Name: Value" (curl style). Split on first `:`
-    // then trim — avoids regex backtracking on malformed long header lines.
-    const colonIdx = headerString.indexOf(':')
-    if (colonIdx === -1) continue
-    const name = headerString.slice(0, colonIdx).trim()
-    const value = headerString.slice(colonIdx + 1).trim()
-    if (name) {
-      customHeaders[name] = value
-    }
+function getOpenAICompatibleCustomHeaders(): Record<string, string> {
+  if (
+    !isEnvTruthy(process.env.CLAUDE_CODE_USE_OPENAI) &&
+    !isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB) &&
+    !isEnvTruthy(process.env.CLAUDE_CODE_USE_GEMINI) &&
+    !isEnvTruthy(process.env.CLAUDE_CODE_USE_MISTRAL)
+  ) {
+    return {}
   }
 
-  return customHeaders
+  return parseCustomHeadersEnv(process.env.OPENAI_CUSTOM_HEADERS)
 }
 
 export const CLIENT_REQUEST_ID_HEADER = 'x-client-request-id'

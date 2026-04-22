@@ -14,6 +14,10 @@ import {
   buildOpenAIProfileEnv,
   type ProviderProfile as ProviderProfileStartup,
 } from './providerProfile.js'
+import {
+  formatCustomHeadersEnv,
+  sanitizeCustomHeaders,
+} from './customHeaders.js'
 
 export type ProviderPreset =
   | 'anthropic'
@@ -41,6 +45,7 @@ export type ProviderProfileInput = {
   baseUrl: string
   model: string
   apiKey?: string
+  headers?: Record<string, string>
 }
 
 export type ProviderPresetDefaults = Omit<ProviderProfileInput, 'provider'> & {
@@ -91,6 +96,7 @@ function sanitizeProfile(profile: ProviderProfile): ProviderProfile | null {
     baseUrl,
     model,
     apiKey: trimOrUndefined(profile.apiKey),
+    headers: sanitizeCustomHeaders(profile.headers),
   }
 }
 
@@ -125,6 +131,7 @@ function toProfile(
     baseUrl: input.baseUrl,
     model: input.model,
     apiKey: input.apiKey,
+    headers: input.headers,
   })
 }
 
@@ -448,7 +455,11 @@ function isProcessEnvAlignedWithProfile(
       sameOptionalEnvValue(processEnv.MISTRAL_BASE_URL, profile.baseUrl) &&
       sameOptionalEnvValue(processEnv.MISTRAL_MODEL, profile.model) &&
       (!includeApiKey ||
-        sameOptionalEnvValue(processEnv.MISTRAL_API_KEY, profile.apiKey))
+        sameOptionalEnvValue(processEnv.MISTRAL_API_KEY, profile.apiKey)) &&
+      sameOptionalEnvValue(
+        processEnv.OPENAI_CUSTOM_HEADERS,
+        formatCustomHeadersEnv(profile.headers),
+      )
     )
   }
 
@@ -464,7 +475,11 @@ function isProcessEnvAlignedWithProfile(
       sameOptionalEnvValue(processEnv.GEMINI_BASE_URL, profile.baseUrl) &&
       sameOptionalEnvValue(processEnv.GEMINI_MODEL, profile.model) &&
       (!includeApiKey ||
-        sameOptionalEnvValue(processEnv.GEMINI_API_KEY, profile.apiKey))
+        sameOptionalEnvValue(processEnv.GEMINI_API_KEY, profile.apiKey)) &&
+      sameOptionalEnvValue(
+        processEnv.OPENAI_CUSTOM_HEADERS,
+        formatCustomHeadersEnv(profile.headers),
+      )
     )
   }
 
@@ -478,8 +493,12 @@ function isProcessEnvAlignedWithProfile(
     processEnv.CLAUDE_CODE_USE_FOUNDRY === undefined &&
     sameOptionalEnvValue(processEnv.OPENAI_BASE_URL, profile.baseUrl) &&
     sameOptionalEnvValue(processEnv.OPENAI_MODEL, getPrimaryModel(profile.model)) &&
-    (!includeApiKey ||
-      sameOptionalEnvValue(processEnv.OPENAI_API_KEY, profile.apiKey))
+      (!includeApiKey ||
+      sameOptionalEnvValue(processEnv.OPENAI_API_KEY, profile.apiKey)) &&
+    sameOptionalEnvValue(
+      processEnv.OPENAI_CUSTOM_HEADERS,
+      formatCustomHeadersEnv(profile.headers),
+    )
   )
 }
 
@@ -510,6 +529,7 @@ export function clearProviderProfileEnvFromProcessEnv(
   delete processEnv.OPENAI_API_BASE
   delete processEnv.OPENAI_MODEL
   delete processEnv.OPENAI_API_KEY
+  delete processEnv.OPENAI_CUSTOM_HEADERS
 
   delete processEnv.ANTHROPIC_BASE_URL
   delete processEnv.ANTHROPIC_MODEL
@@ -567,6 +587,13 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
       delete process.env.MISTRAL_API_KEY
     }
 
+    const customHeaders = formatCustomHeadersEnv(profile.headers)
+    if (customHeaders) {
+      process.env.OPENAI_CUSTOM_HEADERS = customHeaders
+    } else {
+      delete process.env.OPENAI_CUSTOM_HEADERS
+    }
+
     delete process.env.OPENAI_BASE_URL
     delete process.env.OPENAI_API_KEY
     delete process.env.OPENAI_MODEL
@@ -584,6 +611,13 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
       delete process.env.GEMINI_API_KEY
     }
 
+    const customHeaders = formatCustomHeadersEnv(profile.headers)
+    if (customHeaders) {
+      process.env.OPENAI_CUSTOM_HEADERS = customHeaders
+    } else {
+      delete process.env.OPENAI_CUSTOM_HEADERS
+    }
+
     delete process.env.OPENAI_BASE_URL
     delete process.env.OPENAI_API_KEY
     delete process.env.OPENAI_MODEL
@@ -593,6 +627,7 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
   process.env.CLAUDE_CODE_USE_OPENAI = '1'
   process.env.OPENAI_BASE_URL = profile.baseUrl
   process.env.OPENAI_MODEL = getPrimaryModel(profile.model)
+  const customHeaders = formatCustomHeadersEnv(profile.headers)
 
   if (profile.apiKey) {
     process.env.OPENAI_API_KEY = profile.apiKey
@@ -606,6 +641,12 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
     }
   } else {
     delete process.env.OPENAI_API_KEY
+  }
+
+  if (customHeaders) {
+    process.env.OPENAI_CUSTOM_HEADERS = customHeaders
+  } else {
+    delete process.env.OPENAI_CUSTOM_HEADERS
   }
 }
 
@@ -876,6 +917,7 @@ export function setActiveProviderProfile(
             model: activeProfile.model,
             baseUrl: activeProfile.baseUrl,
             apiKey: activeProfile.apiKey,
+            headers: activeProfile.headers,
             authMode: 'api-key',
             processEnv: process.env,
           }) ?? null
@@ -886,6 +928,7 @@ export function setActiveProviderProfile(
             model: activeProfile.model,
             baseUrl: activeProfile.baseUrl,
             apiKey: activeProfile.apiKey,
+            headers: activeProfile.headers,
             processEnv: process.env,
           }) ?? null
         )
@@ -896,6 +939,7 @@ export function setActiveProviderProfile(
             model: activeProfile.model,
             baseUrl: activeProfile.baseUrl,
             apiKey: activeProfile.apiKey,
+            headers: activeProfile.headers,
             processEnv: process.env,
           }) ?? null
         )

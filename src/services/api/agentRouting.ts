@@ -11,6 +11,8 @@ export interface ProviderOverride {
   baseURL: string
   /** API key for this provider */
   apiKey: string
+  /** Optional custom headers for providers that require non-standard auth */
+  headers?: Record<string, string>
 }
 
 /**
@@ -71,5 +73,6 @@ export function resolveAgentProvider(
     model: modelName,
     baseURL: modelConfig.base_url,
     apiKey: modelConfig.api_key,
+    headers: modelConfig.headers,
   }
 }

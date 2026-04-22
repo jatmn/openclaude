@@ -111,6 +111,24 @@ test('openai launch ignores mismatched persisted ollama env', async () => {
   assert.equal(env.CHATGPT_ACCOUNT_ID, undefined)
 })
 
+test('ollama launch clears unrelated custom headers', async () => {
+  const env = await buildLaunchEnv({
+    profile: 'ollama',
+    persisted: profile('ollama', {
+      OPENAI_BASE_URL: 'http://127.0.0.1:11435/v1',
+      OPENAI_MODEL: 'mistral:7b-instruct',
+    }),
+    goal: 'balanced',
+    processEnv: {
+      OPENAI_CUSTOM_HEADERS: 'api-key: sticky-header',
+    },
+    getOllamaChatBaseUrl: () => 'http://localhost:11434/v1',
+    resolveOllamaDefaultModel: async () => 'llama3.1:8b',
+  })
+
+  assert.equal(env.OPENAI_CUSTOM_HEADERS, undefined)
+})
+
 test('openai launch ignores codex shell transport hints', async () => {
   const env = await buildLaunchEnv({
     profile: 'openai',
@@ -145,6 +163,35 @@ test('openai launch ignores codex persisted transport hints', async () => {
   assert.equal(env.OPENAI_BASE_URL, 'https://api.openai.com/v1')
   assert.equal(env.OPENAI_MODEL, 'gpt-4o')
   assert.equal(env.OPENAI_API_KEY, 'sk-live')
+})
+
+test('openai launch preserves persisted custom headers', async () => {
+  const env = await buildLaunchEnv({
+    profile: 'openai',
+    persisted: profile('openai', {
+      OPENAI_BASE_URL: 'https://api.hicap.ai/v1',
+      OPENAI_MODEL: 'gpt-5',
+      OPENAI_API_KEY: 'sk-live',
+      OPENAI_CUSTOM_HEADERS: 'api-key: sk-live',
+    }),
+    goal: 'balanced',
+    processEnv: {},
+  })
+
+  assert.equal(env.OPENAI_CUSTOM_HEADERS, 'api-key: sk-live')
+})
+
+test('buildOpenAIProfileEnv stores custom headers', () => {
+  const env = buildOpenAIProfileEnv({
+    goal: 'balanced',
+    apiKey: 'sk-live',
+    baseUrl: 'https://api.hicap.ai/v1',
+    model: 'gpt-5',
+    headers: { 'api-key': 'sk-live' },
+    processEnv: {},
+  })
+
+  assert.equal(env?.OPENAI_CUSTOM_HEADERS, 'api-key: sk-live')
 })
 
 test('matching persisted gemini env is reused for gemini launch', async () => {

@@ -24,6 +24,7 @@ const originalEnv = {
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
   OPENAI_MODEL: process.env.OPENAI_MODEL,
+  OPENAI_CUSTOM_HEADERS: process.env.OPENAI_CUSTOM_HEADERS,
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN,
   ANTHROPIC_CUSTOM_HEADERS: process.env.ANTHROPIC_CUSTOM_HEADERS,
@@ -50,6 +51,7 @@ beforeEach(() => {
   delete process.env.OPENAI_API_KEY
   delete process.env.OPENAI_BASE_URL
   delete process.env.OPENAI_MODEL
+  delete process.env.OPENAI_CUSTOM_HEADERS
   delete process.env.ANTHROPIC_API_KEY
   delete process.env.ANTHROPIC_AUTH_TOKEN
   delete process.env.ANTHROPIC_CUSTOM_HEADERS
@@ -67,6 +69,7 @@ afterEach(() => {
   restoreEnv('OPENAI_API_KEY', originalEnv.OPENAI_API_KEY)
   restoreEnv('OPENAI_BASE_URL', originalEnv.OPENAI_BASE_URL)
   restoreEnv('OPENAI_MODEL', originalEnv.OPENAI_MODEL)
+  restoreEnv('OPENAI_CUSTOM_HEADERS', originalEnv.OPENAI_CUSTOM_HEADERS)
   restoreEnv('ANTHROPIC_API_KEY', originalEnv.ANTHROPIC_API_KEY)
   restoreEnv('ANTHROPIC_AUTH_TOKEN', originalEnv.ANTHROPIC_AUTH_TOKEN)
   restoreEnv('ANTHROPIC_CUSTOM_HEADERS', originalEnv.ANTHROPIC_CUSTOM_HEADERS)
@@ -205,6 +208,175 @@ test('strips Anthropic-specific custom headers before sending OpenAI-compatible 
   expect(capturedHeaders?.get('authorization')).toBe('Bearer openai-test-key')
 })
 
+test('prefers explicit auth headers from OPENAI_CUSTOM_HEADERS over Authorization', async () => {
+  let capturedHeaders: Headers | undefined
+
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.OPENAI_API_KEY = 'openai-test-key'
+  process.env.OPENAI_BASE_URL = 'http://example.test/v1'
+  process.env.OPENAI_MODEL = 'gpt-4o'
+  process.env.OPENAI_CUSTOM_HEADERS = 'api-key: provider-api-key; X-Provider-Org: demo-team'
+
+  globalThis.fetch = (async (_input, init) => {
+    capturedHeaders = new Headers(init?.headers)
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-openai',
+        model: 'gpt-4o',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'ok',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 8,
+          completion_tokens: 3,
+          total_tokens: 11,
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    )
+  }) as FetchType
+
+  const client = (await getAnthropicClient({
+    maxRetries: 0,
+    model: 'gpt-4o',
+  })) as unknown as ShimClient
+
+  await client.beta.messages.create({
+    model: 'gpt-4o',
+    system: 'test system',
+    messages: [{ role: 'user', content: 'hello' }],
+    max_tokens: 64,
+    stream: false,
+  })
+
+  expect(capturedHeaders?.get('api-key')).toBe('provider-api-key')
+  expect(capturedHeaders?.get('x-provider-org')).toBe('demo-team')
+  expect(capturedHeaders?.get('authorization')).toBeNull()
+})
+
+test('keeps Authorization when OPENAI_CUSTOM_HEADERS only adds non-auth headers', async () => {
+  let capturedHeaders: Headers | undefined
+
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.OPENAI_API_KEY = 'openai-test-key'
+  process.env.OPENAI_BASE_URL = 'http://example.test/v1'
+  process.env.OPENAI_MODEL = 'gpt-4o'
+  process.env.OPENAI_CUSTOM_HEADERS = 'X-Provider-Org: demo-team'
+
+  globalThis.fetch = (async (_input, init) => {
+    capturedHeaders = new Headers(init?.headers)
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-openai',
+        model: 'gpt-4o',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'ok',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 8,
+          completion_tokens: 3,
+          total_tokens: 11,
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    )
+  }) as FetchType
+
+  const client = (await getAnthropicClient({
+    maxRetries: 0,
+    model: 'gpt-4o',
+  })) as unknown as ShimClient
+
+  await client.beta.messages.create({
+    model: 'gpt-4o',
+    system: 'test system',
+    messages: [{ role: 'user', content: 'hello' }],
+    max_tokens: 64,
+    stream: false,
+  })
+
+  expect(capturedHeaders?.get('x-provider-org')).toBe('demo-team')
+  expect(capturedHeaders?.get('authorization')).toBe('Bearer openai-test-key')
+})
+
+test('treats custom headers carrying the API key as explicit auth headers', async () => {
+  let capturedHeaders: Headers | undefined
+
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.OPENAI_API_KEY = 'openai-test-key'
+  process.env.OPENAI_BASE_URL = 'http://example.test/v1'
+  process.env.OPENAI_MODEL = 'gpt-4o'
+  process.env.OPENAI_CUSTOM_HEADERS = 'X-Custom-Secret: openai-test-key'
+
+  globalThis.fetch = (async (_input, init) => {
+    capturedHeaders = new Headers(init?.headers)
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-openai',
+        model: 'gpt-4o',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'ok',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 8,
+          completion_tokens: 3,
+          total_tokens: 11,
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    )
+  }) as FetchType
+
+  const client = (await getAnthropicClient({
+    maxRetries: 0,
+    model: 'gpt-4o',
+  })) as unknown as ShimClient
+
+  await client.beta.messages.create({
+    model: 'gpt-4o',
+    system: 'test system',
+    messages: [{ role: 'user', content: 'hello' }],
+    max_tokens: 64,
+    stream: false,
+  })
+
+  expect(capturedHeaders?.get('x-custom-secret')).toBe('openai-test-key')
+  expect(capturedHeaders?.get('authorization')).toBeNull()
+})
+
 test('strips Anthropic-specific custom headers on providerOverride shim requests too', async () => {
   let capturedHeaders: Headers | undefined
 
@@ -266,5 +438,61 @@ test('strips Anthropic-specific custom headers on providerOverride shim requests
   expect(capturedHeaders?.get('anthropic-beta')).toBeNull()
   expect(capturedHeaders?.get('x-claude-remote-session-id')).toBeNull()
   expect(capturedHeaders?.get('x-safe-header')).toBe('keep-me')
+  expect(capturedHeaders?.get('authorization')).toBe('Bearer provider-test-key')
+})
+
+test('providerOverride requests do not inherit global OPENAI_CUSTOM_HEADERS unless explicitly configured', async () => {
+  let capturedHeaders: Headers | undefined
+
+  process.env.OPENAI_CUSTOM_HEADERS = 'api-key: provider-api-key'
+
+  globalThis.fetch = (async (_input, init) => {
+    capturedHeaders = new Headers(init?.headers)
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-provider-override',
+        model: 'gpt-4o',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'ok',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 8,
+          completion_tokens: 3,
+          total_tokens: 11,
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    )
+  }) as FetchType
+
+  const client = (await getAnthropicClient({
+    maxRetries: 0,
+    providerOverride: {
+      model: 'gpt-4o',
+      baseURL: 'http://example.test/v1',
+      apiKey: 'provider-test-key',
+    },
+  })) as unknown as ShimClient
+
+  await client.beta.messages.create({
+    model: 'unused',
+    system: 'test system',
+    messages: [{ role: 'user', content: 'hello' }],
+    max_tokens: 64,
+    stream: false,
+  })
+
+  expect(capturedHeaders?.get('api-key')).toBeNull()
   expect(capturedHeaders?.get('authorization')).toBe('Bearer provider-test-key')
 })

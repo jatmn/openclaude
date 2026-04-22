@@ -22,6 +22,7 @@ const RESTORED_KEYS = [
   'OPENAI_API_BASE',
   'OPENAI_MODEL',
   'OPENAI_API_KEY',
+  'OPENAI_CUSTOM_HEADERS',
   'ANTHROPIC_BASE_URL',
   'ANTHROPIC_MODEL',
   'ANTHROPIC_API_KEY',
@@ -213,6 +214,24 @@ describe('applyProviderProfileToProcessEnv', () => {
     expect(process.env.OPENAI_MODEL).toBe('glm-4.7')
     expect(String(process.env.CLAUDE_CODE_USE_OPENAI)).toBe('1')
     expect(process.env.OPENAI_BASE_URL).toBe('https://api.openai.com/v1')
+  })
+
+  test('openai profile applies custom headers to process env', async () => {
+    const { applyProviderProfileToProcessEnv } =
+      await importFreshProviderProfileModules()
+
+    applyProviderProfileToProcessEnv(
+      buildProfile({
+        headers: {
+          'api-key': 'provider-api-key',
+          'X-Provider-Org': 'demo-team',
+        },
+      }),
+    )
+
+    expect(process.env.OPENAI_CUSTOM_HEADERS).toBe(
+      'api-key: provider-api-key\nX-Provider-Org: demo-team',
+    )
   })
 
   test('anthropic profile with multi-model string sets only first model in ANTHROPIC_MODEL', async () => {

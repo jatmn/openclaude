@@ -46,6 +46,10 @@ import {
   rankOllamaModels,
   recommendOllamaModel,
 } from '../utils/providerRecommendation.js'
+import {
+  formatCustomHeadersInput,
+  parseCustomHeadersEnv,
+} from '../utils/customHeaders.js'
 import { redactUrlForDisplay } from '../utils/urlRedaction.js'
 import { updateSettingsForSource } from '../utils/settings/settings.js'
 import {
@@ -78,7 +82,7 @@ type Screen =
   | 'select-edit'
   | 'select-delete'
 
-type DraftField = 'name' | 'baseUrl' | 'model' | 'apiKey'
+type DraftField = 'name' | 'baseUrl' | 'model' | 'apiKey' | 'headers'
 
 type ProviderDraft = Record<DraftField, string>
 
@@ -134,6 +138,14 @@ const FORM_STEPS: Array<{
     helpText: 'Optional. Press Enter with empty value to skip.',
     optional: true,
   },
+  {
+    key: 'headers',
+    label: 'Custom headers',
+    placeholder: 'e.g. api-key: your-api-key; X-Org: team-a',
+    helpText:
+      'Optional. Enter "Name: value" pairs separated by semicolons for providers that require extra headers. For HICAP-style providers, use your normal API key as the header value.',
+    optional: true,
+  },
 ]
 
 const GITHUB_PROVIDER_ID = '__github_models__'
@@ -151,6 +163,7 @@ function toDraft(profile: ProviderProfile): ProviderDraft {
     baseUrl: profile.baseUrl,
     model: profile.model,
     apiKey: profile.apiKey ?? '',
+    headers: formatCustomHeadersInput(profile.headers),
   }
 }
 
@@ -161,12 +174,16 @@ function presetToDraft(preset: ProviderPreset): ProviderDraft {
     baseUrl: defaults.baseUrl,
     model: defaults.model,
     apiKey: defaults.apiKey ?? '',
+    headers: '',
   }
 }
 
 function profileSummary(profile: ProviderProfile, isActive: boolean): string {
   const activeSuffix = isActive ? ' (active)' : ''
   const keyInfo = profile.apiKey ? 'key set' : 'no key'
+  const headerInfo = profile.headers && Object.keys(profile.headers).length > 0
+    ? 'headers set'
+    : 'no custom headers'
   const providerKind =
     profile.provider === 'anthropic' ? 'anthropic' : 'openai-compatible'
   const models = parseModelList(profile.model)
@@ -174,7 +191,7 @@ function profileSummary(profile: ProviderProfile, isActive: boolean): string {
     models.length <= 3
       ? models.join(', ')
       : `${models[0]}, ${models[1]} + ${models.length - 2} more`
-  return `${providerKind} · ${profile.baseUrl} · ${modelDisplay} · ${keyInfo}${activeSuffix}`
+  return `${providerKind} · ${profile.baseUrl} · ${modelDisplay} · ${keyInfo} · ${headerInfo}${activeSuffix}`
 }
 
 function getGithubCredentialSourceFromEnv(
@@ -990,6 +1007,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
       baseUrl: nextDraft.baseUrl,
       model: nextDraft.model,
       apiKey: nextDraft.apiKey,
+      headers: parseCustomHeadersEnv(nextDraft.headers),
     }
 
     const saved = editingProfileId
@@ -1372,6 +1390,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
         </Text>
         <Text dimColor>
           Pick a preset, then confirm base URL, model, and API key.
+          Custom headers are optional.
         </Text>
         <Select
           options={options}
@@ -1454,7 +1473,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
           Provider manager
         </Text>
         <Text dimColor>
-          Active profile controls base URL, model, and API key used by this session.
+          Active profile controls base URL, model, API key, and custom headers used by this session.
         </Text>
         {statusMessage && <Text>{statusMessage}</Text>}
         <Box flexDirection="column">

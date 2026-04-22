@@ -6,11 +6,17 @@ const baseSettings = {
   agentModels: {
     'deepseek-chat': { base_url: 'https://api.deepseek.com/v1', api_key: 'sk-ds' },
     'gpt-4o': { base_url: 'https://api.openai.com/v1', api_key: 'sk-oai' },
+    'custom-header-model': {
+      base_url: 'https://api.example.com/v1',
+      api_key: 'sk-custom',
+      headers: { 'api-key': 'custom-secret', 'X-Tenant-ID': 'tenant-123' },
+    },
   },
   agentRouting: {
     Explore: 'deepseek-chat',
     'general-purpose': 'gpt-4o',
     'frontend-dev': 'deepseek-chat',
+    HeaderAgent: 'custom-header-model',
     default: 'gpt-4o',
   },
 } as unknown as SettingsJson
@@ -24,6 +30,19 @@ describe('resolveAgentProvider', () => {
       model: 'deepseek-chat',
       baseURL: 'https://api.deepseek.com/v1',
       apiKey: 'sk-ds',
+    })
+  })
+
+  test('returns optional custom headers when configured for a model', () => {
+    const result = resolveAgentProvider('HeaderAgent', undefined, baseSettings)
+    expect(result).toEqual({
+      model: 'custom-header-model',
+      baseURL: 'https://api.example.com/v1',
+      apiKey: 'sk-custom',
+      headers: {
+        'api-key': 'custom-secret',
+        'X-Tenant-ID': 'tenant-123',
+      },
     })
   })
 

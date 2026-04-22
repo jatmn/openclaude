@@ -177,7 +177,12 @@ export type ToolUseContext = {
     /** Optional callback to get the latest tools (e.g., after MCP servers connect mid-query) */
     refreshTools?: () => Tools
     /** Per-agent provider override from agentRouting config */
-    providerOverride?: { model: string; baseURL: string; apiKey: string }
+    providerOverride?: {
+      model: string
+      baseURL: string
+      apiKey: string
+      headers?: Record<string, string>
+    }
   }
   abortController: AbortController
   readFileState: FileStateCache

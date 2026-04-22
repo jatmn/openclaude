@@ -190,6 +190,7 @@ export type ProviderProfile = {
   baseUrl: string
   model: string
   apiKey?: string
+  headers?: Record<string, string>
 }
 
 export type GlobalConfig = {

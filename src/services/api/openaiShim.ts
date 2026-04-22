@@ -62,6 +62,7 @@ import {
   classifyOpenAINetworkFailure,
 } from './openaiErrorClassification.js'
 import { sanitizeSchemaForOpenAICompat } from '../../utils/schemaSanitizer.js'
+import { hasCustomAuthHeader } from '../../utils/customHeaders.js'
 import { redactSecretValueForDisplay } from '../../utils/providerProfile.js'
 import {
   normalizeToolArguments,
@@ -1259,11 +1260,28 @@ class OpenAIShimStream {
 
 class OpenAIShimMessages {
   private defaultHeaders: Record<string, string>
+  private customHeaders: Record<string, string>
   private reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh'
-  private providerOverride?: { model: string; baseURL: string; apiKey: string }
+  private providerOverride?: {
+    model: string
+    baseURL: string
+    apiKey: string
+    headers?: Record<string, string>
+  }
 
-  constructor(defaultHeaders: Record<string, string>, reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh', providerOverride?: { model: string; baseURL: string; apiKey: string }) {
+  constructor(
+    defaultHeaders: Record<string, string>,
+    customHeaders: Record<string, string>,
+    reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh',
+    providerOverride?: {
+      model: string
+      baseURL: string
+      apiKey: string
+      headers?: Record<string, string>
+    },
+  ) {
     this.defaultHeaders = filterAnthropicHeaders(defaultHeaders)
+    this.customHeaders = customHeaders
     this.reasoningEffort = reasoningEffort
     this.providerOverride = providerOverride
   }
@@ -1372,6 +1390,7 @@ class OpenAIShimMessages {
         params,
         defaultHeaders: {
           ...this.defaultHeaders,
+          ...this.customHeaders,
           ...filterAnthropicHeaders(options?.headers),
           ...COPILOT_HEADERS,
         },
@@ -1419,6 +1438,7 @@ class OpenAIShimMessages {
         params,
         defaultHeaders: {
           ...this.defaultHeaders,
+          ...this.customHeaders,
           ...filterAnthropicHeaders(options?.headers),
         },
         signal: options?.signal,
@@ -1527,6 +1547,7 @@ class OpenAIShimMessages {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...this.defaultHeaders,
+      ...this.customHeaders,
       ...filterAnthropicHeaders(options?.headers),
     }
 
@@ -1536,6 +1557,10 @@ class OpenAIShimMessages {
       this.providerOverride?.apiKey ??
       process.env.OPENAI_API_KEY ??
       (isMiniMax ? process.env.MINIMAX_API_KEY : '')
+    const hasExplicitCustomAuthHeader = hasCustomAuthHeader(
+      this.customHeaders,
+      apiKey,
+    )
     // Detect Azure endpoints by hostname (not raw URL) to prevent bypass via
     // path segments like https://evil.com/cognitiveservices.azure.com/
     let isAzure = false
@@ -1545,7 +1570,7 @@ class OpenAIShimMessages {
         (hostname.includes('cognitiveservices') || hostname.includes('openai') || hostname.includes('services.ai'))
     } catch { /* malformed URL — not Azure */ }
 
-    if (apiKey) {
+    if (apiKey && !hasExplicitCustomAuthHeader) {
       if (isAzure) {
         // Azure uses api-key header instead of Bearer token
         headers['api-key'] = apiKey
@@ -2040,18 +2065,39 @@ class OpenAIShimBeta {
   messages: OpenAIShimMessages
   reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh'
 
-  constructor(defaultHeaders: Record<string, string>, reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh', providerOverride?: { model: string; baseURL: string; apiKey: string }) {
-    this.messages = new OpenAIShimMessages(defaultHeaders, reasoningEffort, providerOverride)
+  constructor(
+    defaultHeaders: Record<string, string>,
+    customHeaders: Record<string, string>,
+    reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh',
+    providerOverride?: {
+      model: string
+      baseURL: string
+      apiKey: string
+      headers?: Record<string, string>
+    },
+  ) {
+    this.messages = new OpenAIShimMessages(
+      defaultHeaders,
+      customHeaders,
+      reasoningEffort,
+      providerOverride,
+    )
     this.reasoningEffort = reasoningEffort
   }
 }
 
 export function createOpenAIShimClient(options: {
   defaultHeaders?: Record<string, string>
+  customHeaders?: Record<string, string>
   maxRetries?: number
   timeout?: number
   reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh'
-  providerOverride?: { model: string; baseURL: string; apiKey: string }
+  providerOverride?: {
+    model: string
+    baseURL: string
+    apiKey: string
+    headers?: Record<string, string>
+  }
 }): unknown {
   hydrateGeminiAccessTokenFromSecureStorage()
   hydrateGithubModelsTokenFromSecureStorage()
@@ -2085,6 +2131,8 @@ export function createOpenAIShimClient(options: {
 
   const beta = new OpenAIShimBeta({
     ...(options.defaultHeaders ?? {}),
+  }, {
+    ...(options.customHeaders ?? {}),
   }, options.reasoningEffort, options.providerOverride)
 
   return {

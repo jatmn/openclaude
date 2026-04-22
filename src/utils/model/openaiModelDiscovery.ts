@@ -2,6 +2,7 @@ import axios from 'axios'
 import { logForDebugging } from '../debug.js'
 import type { ModelOption } from './modelOptions.js'
 import { getAPIProvider } from './providers.js'
+import { hasCustomAuthHeader, parseCustomHeadersEnv } from '../customHeaders.js'
 
 const DISCOVERY_TIMEOUT_MS = 5000
 const DISCOVERED_MODEL_DESCRIPTION =
@@ -40,14 +41,15 @@ function isAzureOpenAIBaseUrl(baseUrl: string): boolean {
 }
 
 function getOpenAIAuthHeaders(baseUrl: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    ...parseCustomHeadersEnv(process.env.OPENAI_CUSTOM_HEADERS),
+  }
   const apiKey = process.env.OPENAI_API_KEY?.trim()
-  if (!apiKey) {
-    return {}
+  if (!apiKey || hasCustomAuthHeader(headers, apiKey)) {
+    return headers
   }
 
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${apiKey}`,
-  }
+  headers.Authorization = `Bearer ${apiKey}`
 
   if (isAzureOpenAIBaseUrl(baseUrl)) {
     headers['api-key'] = apiKey

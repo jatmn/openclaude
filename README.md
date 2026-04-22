@@ -56,6 +56,9 @@ macOS / Linux:
 export CLAUDE_CODE_USE_OPENAI=1
 export OPENAI_API_KEY=sk-your-key-here
 export OPENAI_MODEL=gpt-4o
+# Optional: extra provider headers, one per line or separated by semicolons
+# For providers like HICAP, use your actual provider API key as the header value.
+# export OPENAI_CUSTOM_HEADERS='api-key: sk-your-key-here'
 
 openclaude
 ```
@@ -66,6 +69,9 @@ Windows PowerShell:
 $env:CLAUDE_CODE_USE_OPENAI="1"
 $env:OPENAI_API_KEY="sk-your-key-here"
 $env:OPENAI_MODEL="gpt-4o"
+# Optional: extra provider headers
+# For providers like HICAP, use your actual provider API key as the header value.
+# $env:OPENAI_CUSTOM_HEADERS="api-key: sk-your-key-here"
 
 openclaude
 ```
@@ -163,7 +169,10 @@ Add to `~/.claude/settings.json`:
     },
     "gpt-4o": {
       "base_url": "https://api.openai.com/v1",
-      "api_key": "sk-your-key"
+      "api_key": "sk-your-key",
+      "headers": {
+        "api-key": "sk-your-key"
+      }
     }
   },
   "agentRouting": {
@@ -179,6 +188,8 @@ Add to `~/.claude/settings.json`:
 When no routing match is found, the global provider remains the fallback.
 
 > **Note:** `api_key` values in `settings.json` are stored in plaintext. Keep this file private and do not commit it to version control.
+
+For OpenAI-compatible providers that require non-standard auth, set `OPENAI_CUSTOM_HEADERS` or add `headers` in `agentModels`. Example: `OPENAI_CUSTOM_HEADERS="api-key: your-key"` for providers that expect a custom auth header instead of `Authorization`. For HICAP-style setups, the header value is still the same API key you got from the provider, just sent as `api-key` instead of `Authorization: Bearer ...`.
 
 ## Web Search and Fetch
 

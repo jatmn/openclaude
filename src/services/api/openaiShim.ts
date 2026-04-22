@@ -62,7 +62,10 @@ import {
   classifyOpenAINetworkFailure,
 } from './openaiErrorClassification.js'
 import { sanitizeSchemaForOpenAICompat } from '../../utils/schemaSanitizer.js'
-import { hasCustomAuthHeader } from '../../utils/customHeaders.js'
+import {
+  hasCustomAuthHeader,
+  sanitizeCustomHeaders,
+} from '../../utils/customHeaders.js'
 import { redactSecretValueForDisplay } from '../../utils/providerProfile.js'
 import {
   normalizeToolArguments,
@@ -1286,6 +1289,13 @@ class OpenAIShimMessages {
     this.providerOverride = providerOverride
   }
 
+  private getMergedCustomHeaders(): Record<string, string> {
+    return {
+      ...this.customHeaders,
+      ...(sanitizeCustomHeaders(this.providerOverride?.headers) ?? {}),
+    }
+  }
+
   create(
     params: ShimCreateParams,
     options?: { signal?: AbortSignal; headers?: Record<string, string> },
@@ -1390,7 +1400,7 @@ class OpenAIShimMessages {
         params,
         defaultHeaders: {
           ...this.defaultHeaders,
-          ...this.customHeaders,
+          ...this.getMergedCustomHeaders(),
           ...filterAnthropicHeaders(options?.headers),
           ...COPILOT_HEADERS,
         },
@@ -1438,7 +1448,7 @@ class OpenAIShimMessages {
         params,
         defaultHeaders: {
           ...this.defaultHeaders,
-          ...this.customHeaders,
+          ...this.getMergedCustomHeaders(),
           ...filterAnthropicHeaders(options?.headers),
         },
         signal: options?.signal,
@@ -1544,10 +1554,12 @@ class OpenAIShimMessages {
       }
     }
 
+    const mergedCustomHeaders = this.getMergedCustomHeaders()
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...this.defaultHeaders,
-      ...this.customHeaders,
+      ...mergedCustomHeaders,
       ...filterAnthropicHeaders(options?.headers),
     }
 
@@ -1557,7 +1569,7 @@ class OpenAIShimMessages {
       this.providerOverride?.apiKey ??
       process.env.OPENAI_API_KEY ??
       (isMiniMax ? process.env.MINIMAX_API_KEY : '')
-    const hasExplicitCustomAuthHeader = hasCustomAuthHeader(this.customHeaders)
+    const hasExplicitCustomAuthHeader = hasCustomAuthHeader(mergedCustomHeaders)
     // Detect Azure endpoints by hostname (not raw URL) to prevent bypass via
     // path segments like https://evil.com/cognitiveservices.azure.com/
     let isAzure = false
@@ -1567,14 +1579,14 @@ class OpenAIShimMessages {
         (hostname.includes('cognitiveservices') || hostname.includes('openai') || hostname.includes('services.ai'))
     } catch { /* malformed URL — not Azure */ }
 
-    if (apiKey && !hasExplicitCustomAuthHeader) {
+    if (!hasExplicitCustomAuthHeader && apiKey) {
       if (isAzure) {
         // Azure uses api-key header instead of Bearer token
         headers['api-key'] = apiKey
       } else {
         headers.Authorization = `Bearer ${apiKey}`
       }
-    } else if (isGemini) {
+    } else if (!hasExplicitCustomAuthHeader && isGemini) {
       const geminiCredential = await resolveGeminiCredential(process.env)
       if (geminiCredential.kind !== 'none') {
         headers.Authorization = `Bearer ${geminiCredential.credential}`

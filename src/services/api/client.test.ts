@@ -16,11 +16,14 @@ const originalMacro = (globalThis as Record<string, unknown>).MACRO
 const originalEnv = {
   CLAUDE_CODE_USE_OPENAI: process.env.CLAUDE_CODE_USE_OPENAI,
   CLAUDE_CODE_USE_GEMINI: process.env.CLAUDE_CODE_USE_GEMINI,
+  CLAUDE_CODE_USE_GITHUB: process.env.CLAUDE_CODE_USE_GITHUB,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   GEMINI_MODEL: process.env.GEMINI_MODEL,
   GEMINI_BASE_URL: process.env.GEMINI_BASE_URL,
   GEMINI_AUTH_MODE: process.env.GEMINI_AUTH_MODE,
   GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
+  GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+  GH_TOKEN: process.env.GH_TOKEN,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
   OPENAI_MODEL: process.env.OPENAI_MODEL,
@@ -47,7 +50,10 @@ beforeEach(() => {
   process.env.GEMINI_AUTH_MODE = 'api-key'
 
   delete process.env.CLAUDE_CODE_USE_OPENAI
+  delete process.env.CLAUDE_CODE_USE_GITHUB
   delete process.env.GOOGLE_API_KEY
+  delete process.env.GITHUB_TOKEN
+  delete process.env.GH_TOKEN
   delete process.env.OPENAI_API_KEY
   delete process.env.OPENAI_BASE_URL
   delete process.env.OPENAI_MODEL
@@ -61,11 +67,14 @@ afterEach(() => {
   ;(globalThis as Record<string, unknown>).MACRO = originalMacro
   restoreEnv('CLAUDE_CODE_USE_OPENAI', originalEnv.CLAUDE_CODE_USE_OPENAI)
   restoreEnv('CLAUDE_CODE_USE_GEMINI', originalEnv.CLAUDE_CODE_USE_GEMINI)
+  restoreEnv('CLAUDE_CODE_USE_GITHUB', originalEnv.CLAUDE_CODE_USE_GITHUB)
   restoreEnv('GEMINI_API_KEY', originalEnv.GEMINI_API_KEY)
   restoreEnv('GEMINI_MODEL', originalEnv.GEMINI_MODEL)
   restoreEnv('GEMINI_BASE_URL', originalEnv.GEMINI_BASE_URL)
   restoreEnv('GEMINI_AUTH_MODE', originalEnv.GEMINI_AUTH_MODE)
   restoreEnv('GOOGLE_API_KEY', originalEnv.GOOGLE_API_KEY)
+  restoreEnv('GITHUB_TOKEN', originalEnv.GITHUB_TOKEN)
+  restoreEnv('GH_TOKEN', originalEnv.GH_TOKEN)
   restoreEnv('OPENAI_API_KEY', originalEnv.OPENAI_API_KEY)
   restoreEnv('OPENAI_BASE_URL', originalEnv.OPENAI_BASE_URL)
   restoreEnv('OPENAI_MODEL', originalEnv.OPENAI_MODEL)
@@ -206,6 +215,61 @@ test('strips Anthropic-specific custom headers before sending OpenAI-compatible 
   expect(capturedHeaders?.get('x-app')).toBeNull()
   expect(capturedHeaders?.get('x-safe-header')).toBe('keep-me')
   expect(capturedHeaders?.get('authorization')).toBe('Bearer openai-test-key')
+})
+
+test('preserves semicolons in ANTHROPIC_CUSTOM_HEADERS values', async () => {
+  let capturedHeaders: Headers | undefined
+
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.OPENAI_API_KEY = 'openai-test-key'
+  process.env.OPENAI_BASE_URL = 'http://example.test/v1'
+  process.env.OPENAI_MODEL = 'gpt-4o'
+  process.env.ANTHROPIC_CUSTOM_HEADERS = 'X-Session-ID: abc;def;ghi'
+
+  globalThis.fetch = (async (_input, init) => {
+    capturedHeaders = new Headers(init?.headers)
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-openai',
+        model: 'gpt-4o',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'ok',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 8,
+          completion_tokens: 3,
+          total_tokens: 11,
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    )
+  }) as FetchType
+
+  const client = (await getAnthropicClient({
+    maxRetries: 0,
+    model: 'gpt-4o',
+  })) as unknown as ShimClient
+
+  await client.beta.messages.create({
+    model: 'gpt-4o',
+    system: 'test system',
+    messages: [{ role: 'user', content: 'hello' }],
+    max_tokens: 64,
+    stream: false,
+  })
+
+  expect(capturedHeaders?.get('x-session-id')).toBe('abc;def;ghi')
 })
 
 test('prefers explicit auth headers from OPENAI_CUSTOM_HEADERS over Authorization', async () => {
@@ -375,6 +439,64 @@ test('keeps Authorization when custom header values match the API key but header
 
   expect(capturedHeaders?.get('x-custom-secret')).toBe('openai-test-key')
   expect(capturedHeaders?.get('authorization')).toBe('Bearer openai-test-key')
+})
+
+test('drops blocked OPENAI_CUSTOM_HEADERS names before sending shim requests', async () => {
+  let capturedHeaders: Headers | undefined
+
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.OPENAI_API_KEY = 'openai-test-key'
+  process.env.OPENAI_BASE_URL = 'http://example.test/v1'
+  process.env.OPENAI_MODEL = 'gpt-4o'
+  process.env.OPENAI_CUSTOM_HEADERS =
+    'Content-Type: text/plain; Host: evil.test; X-Provider-Org: demo-team'
+
+  globalThis.fetch = (async (_input, init) => {
+    capturedHeaders = new Headers(init?.headers)
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-openai',
+        model: 'gpt-4o',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'ok',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 8,
+          completion_tokens: 3,
+          total_tokens: 11,
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    )
+  }) as FetchType
+
+  const client = (await getAnthropicClient({
+    maxRetries: 0,
+    model: 'gpt-4o',
+  })) as unknown as ShimClient
+
+  await client.beta.messages.create({
+    model: 'gpt-4o',
+    system: 'test system',
+    messages: [{ role: 'user', content: 'hello' }],
+    max_tokens: 64,
+    stream: false,
+  })
+
+  expect(capturedHeaders?.get('content-type')).toBe('application/json')
+  expect(capturedHeaders?.get('host')).toBeNull()
+  expect(capturedHeaders?.get('x-provider-org')).toBe('demo-team')
 })
 
 test('github mode ignores OPENAI_CUSTOM_HEADERS', async () => {

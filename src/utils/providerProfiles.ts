@@ -15,6 +15,7 @@ import {
   type ProviderProfile as ProviderProfileStartup,
 } from './providerProfile.js'
 import {
+  findBlockedCustomHeaderNames,
   formatCustomHeadersEnv,
   sanitizeCustomHeaders,
 } from './customHeaders.js'
@@ -124,6 +125,10 @@ function toProfile(
   input: ProviderProfileInput,
   id: string = nextProfileId(),
 ): ProviderProfile | null {
+  if (findBlockedCustomHeaderNames(input.headers).length > 0) {
+    return null
+  }
+
   return sanitizeProfile({
     id,
     provider: input.provider ?? 'openai',

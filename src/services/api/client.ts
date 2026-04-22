@@ -11,7 +11,11 @@ import {
 } from 'src/utils/auth.js'
 import { getUserAgent } from 'src/utils/http.js'
 import { getSmallFastModel } from 'src/utils/model/model.js'
-import { parseCustomHeadersEnv, sanitizeCustomHeaders } from 'src/utils/customHeaders.js'
+import {
+  parseCustomHeadersEnv,
+  parseOpenAICompatibleCustomHeadersEnv,
+  sanitizeCustomHeaders,
+} from 'src/utils/customHeaders.js'
 import {
   getAPIProvider,
   isFirstPartyAnthropicBaseUrl,
@@ -115,6 +119,9 @@ export async function getAnthropicClient({
   const remoteSessionId = process.env.CLAUDE_CODE_REMOTE_SESSION_ID
   const clientApp = process.env.CLAUDE_AGENT_SDK_CLIENT_APP
   const anthropicCustomHeaders = getAnthropicCustomHeaders()
+  // Agent-routing overrides intentionally use only the headers configured on
+  // that routed provider. Global OPENAI_CUSTOM_HEADERS stay scoped to the
+  // active session provider and are not inherited into providerOverride calls.
   const openaiCustomHeaders = providerOverride
     ? sanitizeCustomHeaders(providerOverride.headers) ?? {}
     : getOpenAICompatibleCustomHeaders()
@@ -402,10 +409,19 @@ async function configureApiKeyHeaders(
 }
 
 function getAnthropicCustomHeaders(): Record<string, string> {
-  return parseCustomHeadersEnv(process.env.ANTHROPIC_CUSTOM_HEADERS)
+  return parseCustomHeadersEnv(process.env.ANTHROPIC_CUSTOM_HEADERS, {
+    sourceName: 'ANTHROPIC_CUSTOM_HEADERS',
+    onWarning: warning => {
+      logForDebugging(`[CustomHeaders] ${warning}`, { level: 'warn' })
+    },
+  })
 }
 
 function getOpenAICompatibleCustomHeaders(): Record<string, string> {
+  if (isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB)) {
+    return {}
+  }
+
   if (
     !isEnvTruthy(process.env.CLAUDE_CODE_USE_OPENAI) &&
     !isEnvTruthy(process.env.CLAUDE_CODE_USE_GEMINI) &&
@@ -414,7 +430,12 @@ function getOpenAICompatibleCustomHeaders(): Record<string, string> {
     return {}
   }
 
-  return parseCustomHeadersEnv(process.env.OPENAI_CUSTOM_HEADERS)
+  return parseOpenAICompatibleCustomHeadersEnv(process.env.OPENAI_CUSTOM_HEADERS, {
+    sourceName: 'OPENAI_CUSTOM_HEADERS',
+    onWarning: warning => {
+      logForDebugging(`[CustomHeaders] ${warning}`, { level: 'warn' })
+    },
+  })
 }
 
 export const CLIENT_REQUEST_ID_HEADER = 'x-client-request-id'

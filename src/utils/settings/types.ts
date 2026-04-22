@@ -727,11 +727,11 @@ export const SettingsSchema = lazySchema(() =>
           z.string(),
           z.object({
             base_url: z.string().url().describe('OpenAI-compatible API endpoint (must be https:// or http://)'),
-            api_key: z.string().describe('API key for this provider'),
+            api_key: z.string().describe('API key for this provider. Stored in plaintext in settings.json.'),
             headers: z
               .record(z.string(), z.string())
               .optional()
-              .describe('Optional custom headers for this provider (for example api-key or org headers)'),
+              .describe('Optional custom headers for this provider (for example api-key or org headers). Values are stored in plaintext in settings.json and may contain secrets. Dangerous names like Host, Content-Length, Transfer-Encoding, Connection, and Content-Type are blocked. These headers are scoped to this model entry and do not inherit from global OPENAI_CUSTOM_HEADERS when agent routing selects it.'),
           }),
         )
         .optional()
@@ -745,6 +745,7 @@ export const SettingsSchema = lazySchema(() =>
         .describe(
           'Map of agent identifier (subagent_type or team member name) to model name. ' +
             'Use "default" key as fallback. Model name must exist in agentModels. ' +
+            'Routing selects that model entry only; it does not merge in shell-level OPENAI_CUSTOM_HEADERS. ' +
             'Example: { "Explore": "deepseek-chat", "general-purpose": "gpt-4o", "default": "gpt-4o" }',
         ),
       fastMode: z

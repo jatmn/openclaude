@@ -723,6 +723,24 @@ describe('setActiveProviderProfile', () => {
   })
 })
 
+describe('addProviderProfile', () => {
+  test('rejects blocked custom header names', async () => {
+    const { addProviderProfile } = await importFreshProviderProfileModules()
+
+    const result = addProviderProfile({
+      name: 'Unsafe Provider',
+      baseUrl: 'https://api.example.com/v1',
+      model: 'unsafe-model',
+      headers: {
+        Host: 'evil.test',
+        'X-Provider-Org': 'demo-team',
+      },
+    })
+
+    expect(result).toBeNull()
+  })
+})
+
 describe('deleteProviderProfile', () => {
   test('deleting final profile clears provider env when active profile applied it', async () => {
     const {

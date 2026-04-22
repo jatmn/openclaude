@@ -182,6 +182,22 @@ test('openai launch preserves persisted custom headers', async () => {
   assert.equal(env.OPENAI_CUSTOM_HEADERS, 'api-key: sk-live')
 })
 
+test('openai launch preserves persisted custom headers with semicolons in values', async () => {
+  const env = await buildLaunchEnv({
+    profile: 'openai',
+    persisted: profile('openai', {
+      OPENAI_BASE_URL: 'https://api.hicap.ai/v1',
+      OPENAI_MODEL: 'gpt-5',
+      OPENAI_API_KEY: 'sk-live',
+      OPENAI_CUSTOM_HEADERS: 'X-Session-ID: abc;def;ghi',
+    }),
+    goal: 'balanced',
+    processEnv: {},
+  })
+
+  assert.equal(env.OPENAI_CUSTOM_HEADERS, 'X-Session-ID: "abc;def;ghi"')
+})
+
 test('buildOpenAIProfileEnv stores custom headers', () => {
   const env = buildOpenAIProfileEnv({
     goal: 'balanced',
@@ -193,6 +209,19 @@ test('buildOpenAIProfileEnv stores custom headers', () => {
   })
 
   assert.equal(env?.OPENAI_CUSTOM_HEADERS, 'api-key: sk-live')
+})
+
+test('buildOpenAIProfileEnv quotes semicolon values in custom headers', () => {
+  const env = buildOpenAIProfileEnv({
+    goal: 'balanced',
+    apiKey: 'sk-live',
+    baseUrl: 'https://api.hicap.ai/v1',
+    model: 'gpt-5',
+    headers: { 'X-Session-ID': 'abc;def;ghi' },
+    processEnv: {},
+  })
+
+  assert.equal(env?.OPENAI_CUSTOM_HEADERS, 'X-Session-ID: "abc;def;ghi"')
 })
 
 test('buildOpenAIProfileEnv does not inherit shell custom headers when none are provided', () => {
@@ -226,6 +255,22 @@ test('matching persisted gemini env is reused for gemini launch', async () => {
   assert.equal(env.GEMINI_MODEL, 'gemini-2.5-flash')
   assert.equal(env.GEMINI_API_KEY, 'gem-persisted')
   assert.equal(env.GEMINI_BASE_URL, 'https://example.test/v1beta/openai')
+})
+
+test('gemini launch preserves persisted custom headers with semicolons in values', async () => {
+  const env = await buildLaunchEnv({
+    profile: 'gemini',
+    persisted: profile('gemini', {
+      GEMINI_MODEL: 'gemini-2.5-flash',
+      GEMINI_API_KEY: 'gem-persisted',
+      GEMINI_BASE_URL: 'https://example.test/v1beta/openai',
+      OPENAI_CUSTOM_HEADERS: 'X-Session-ID: abc;def;ghi',
+    }),
+    goal: 'balanced',
+    processEnv: {},
+  })
+
+  assert.equal(env.OPENAI_CUSTOM_HEADERS, 'X-Session-ID: "abc;def;ghi"')
 })
 
 test('openai env variables take precedence over gemini', async () => {
@@ -461,6 +506,22 @@ test('mistral profiles do not inherit shell custom headers when none are provide
     MISTRAL_API_KEY: 'mistral-live',
     MISTRAL_MODEL: 'devstral-latest',
   })
+})
+
+test('mistral launch preserves persisted custom headers with semicolons in values', async () => {
+  const env = await buildLaunchEnv({
+    profile: 'mistral',
+    persisted: profile('mistral', {
+      MISTRAL_API_KEY: 'mistral-live',
+      MISTRAL_MODEL: 'devstral-latest',
+      MISTRAL_BASE_URL: 'https://api.mistral.ai/v1',
+      OPENAI_CUSTOM_HEADERS: 'X-Session-ID: abc;def;ghi',
+    }),
+    goal: 'balanced',
+    processEnv: {},
+  })
+
+  assert.equal(env.OPENAI_CUSTOM_HEADERS, 'X-Session-ID: "abc;def;ghi"')
 })
 
 test('gemini profiles support access-token auth mode without persisting a key', () => {

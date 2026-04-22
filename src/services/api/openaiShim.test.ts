@@ -327,6 +327,64 @@ test('strips Anthropic-specific headers on GitHub Codex transport with providerO
   expect(capturedHeaders?.get('editor-plugin-version')).toBe('copilot-chat/0.26.7')
 })
 
+test('providerOverride auth headers suppress fallback Authorization and are sent on direct shim clients', async () => {
+  let capturedHeaders: Headers | undefined
+
+  globalThis.fetch = (async (_input, init) => {
+    capturedHeaders = new Headers(init?.headers)
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-provider-override-auth',
+        model: 'gpt-4o',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'ok',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 8,
+          completion_tokens: 3,
+          total_tokens: 11,
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    )
+  }) as FetchType
+
+  const client = createOpenAIShimClient({
+    providerOverride: {
+      model: 'gpt-4o',
+      baseURL: 'http://example.test/v1',
+      apiKey: 'provider-override-key',
+      headers: {
+        'api-key': 'custom-provider-key',
+        'X-Provider-Org': 'demo-team',
+      },
+    },
+  }) as OpenAIShimClient
+
+  await client.beta.messages.create({
+    model: 'ignored',
+    system: 'test system',
+    messages: [{ role: 'user', content: 'hello' }],
+    max_tokens: 64,
+    stream: false,
+  })
+
+  expect(capturedHeaders?.get('api-key')).toBe('custom-provider-key')
+  expect(capturedHeaders?.get('x-provider-org')).toBe('demo-team')
+  expect(capturedHeaders?.get('authorization')).toBeNull()
+})
+
 test('preserves usage from final OpenAI stream chunk with empty choices', async () => {
   globalThis.fetch = (async (_input, init) => {
     const url = typeof _input === 'string' ? _input : _input.url

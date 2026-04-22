@@ -1,8 +1,9 @@
 import type { OllamaModelDescriptor } from './providerRecommendation.ts'
 import { DEFAULT_OPENAI_BASE_URL } from '../services/api/providerConfig.js'
+import { logForDebugging } from './debug.js'
 import {
   hasCustomAuthHeader,
-  parseCustomHeadersEnv,
+  parseOpenAICompatibleCustomHeadersEnv,
   sanitizeCustomHeaders,
 } from './customHeaders.js'
 
@@ -233,7 +234,12 @@ export async function listOpenAICompatibleModels(options?: {
   const { signal, clear } = withTimeoutSignal(5000)
   try {
     const headers: Record<string, string> = {
-      ...parseCustomHeadersEnv(process.env.OPENAI_CUSTOM_HEADERS),
+      ...parseOpenAICompatibleCustomHeadersEnv(process.env.OPENAI_CUSTOM_HEADERS, {
+        sourceName: 'OPENAI_CUSTOM_HEADERS',
+        onWarning: warning => {
+          logForDebugging(`[CustomHeaders] ${warning}`, { level: 'warn' })
+        },
+      }),
       ...(sanitizeCustomHeaders(options?.headers) ?? {}),
     }
     if (options?.apiKey && !hasCustomAuthHeader(headers)) {

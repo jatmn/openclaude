@@ -24,7 +24,7 @@ import {
 } from './providerSecrets.js'
 import {
   formatCustomHeadersEnv,
-  parseCustomHeadersEnv,
+  parseOpenAICompatibleCustomHeadersEnv,
 } from './customHeaders.js'
 
 export {
@@ -576,10 +576,10 @@ export async function buildLaunchEnv(options: {
     processEnv as SecretValueSource,
   )
   const persistedOpenAICustomHeaders = formatCustomHeadersEnv(
-    parseCustomHeadersEnv(persistedEnv.OPENAI_CUSTOM_HEADERS),
+    parseOpenAICompatibleCustomHeadersEnv(persistedEnv.OPENAI_CUSTOM_HEADERS),
   )
   const shellOpenAICustomHeaders = formatCustomHeadersEnv(
-    parseCustomHeadersEnv(processEnv.OPENAI_CUSTOM_HEADERS),
+    parseOpenAICompatibleCustomHeadersEnv(processEnv.OPENAI_CUSTOM_HEADERS),
   )
   const persistedGeminiModel = sanitizeProviderConfigValue(
     persistedEnv.GEMINI_MODEL,

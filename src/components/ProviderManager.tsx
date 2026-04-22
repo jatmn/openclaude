@@ -48,7 +48,7 @@ import {
 } from '../utils/providerRecommendation.js'
 import {
   formatCustomHeadersInput,
-  parseCustomHeadersEnv,
+  parseCustomHeadersInput,
 } from '../utils/customHeaders.js'
 import { redactUrlForDisplay } from '../utils/urlRedaction.js'
 import { updateSettingsForSource } from '../utils/settings/settings.js'
@@ -143,7 +143,7 @@ const FORM_STEPS: Array<{
     label: 'Custom headers',
     placeholder: 'e.g. api-key: your-api-key; X-Org: team-a',
     helpText:
-      'Optional. Enter "Name: value" pairs separated by semicolons for providers that require extra headers. For HICAP-style providers, use your normal API key as the header value.',
+      'Optional. Enter "Name: value" pairs separated by semicolons for providers that require extra headers. Header values may contain secrets and are stored in plaintext in settings.json. Blocked names like Host and Content-Type are not allowed.',
     optional: true,
   },
 ]
@@ -1006,13 +1006,19 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
   }
 
   function persistDraft(nextDraft: ProviderDraft = draft): void {
+    const parsedHeaders = parseCustomHeadersInput(nextDraft.headers)
+    if (parsedHeaders.errors.length > 0) {
+      setErrorMessage(parsedHeaders.errors[0] ?? 'Could not parse custom headers.')
+      return
+    }
+
     const payload: ProviderProfileInput = {
       provider: draftProvider,
       name: nextDraft.name,
       baseUrl: nextDraft.baseUrl,
       model: nextDraft.model,
       apiKey: nextDraft.apiKey,
-      headers: parseCustomHeadersEnv(nextDraft.headers),
+      headers: parsedHeaders.headers,
     }
 
     const saved = editingProfileId

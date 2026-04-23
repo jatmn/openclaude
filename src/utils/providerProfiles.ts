@@ -19,6 +19,7 @@ export type ProviderPreset =
   | 'anthropic'
   | 'ollama'
   | 'openai'
+  | 'kimi-code'
   | 'moonshotai'
   | 'deepseek'
   | 'gemini'
@@ -157,10 +158,19 @@ export function getProviderPresetDefaults(
         apiKey: '',
         requiresApiKey: true,
       }
+    case 'kimi-code':
+      return {
+        provider: 'openai',
+        name: 'Moonshot Ai - Kimi Code',
+        baseUrl: 'https://api.kimi.com/coding/v1',
+        model: 'kimi-for-coding',
+        apiKey: '',
+        requiresApiKey: true,
+      }
     case 'moonshotai':
       return {
         provider: 'openai',
-        name: 'Moonshot AI',
+        name: 'Moonshot AI - API',
         baseUrl: 'https://api.moonshot.ai/v1',
         model: 'kimi-k2.5',
         apiKey: '',

@@ -1321,8 +1321,13 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
       },
       {
         value: 'moonshotai',
-        label: 'Moonshot AI',
-        description: 'Kimi OpenAI-compatible endpoint',
+        label: 'Moonshot AI - API',
+        description: 'Moonshot AI - API endpoint',
+      },
+      {
+        value: 'kimi-code',
+        label: 'Moonshot Ai - Kimi Code',
+        description: 'Kimi Code - Subscription endpoint',
       },
       {
         value: 'nvidia-nim',

@@ -197,9 +197,13 @@ export function getLocalOpenAICompatibleProviderLabel(baseUrl?: string): string 
     if (host.includes('minimax') || haystack.includes('minimax')) {
       return 'MiniMax'
     }
-    // Moonshot AI (Kimi) direct API
-    if (host.includes('moonshot') || haystack.includes('moonshot') || haystack.includes('kimi')) {
-      return 'Moonshot (Kimi)'
+    // Kimi Code subscription API
+    if (hostname === 'api.kimi.com' && path.includes('/coding')) {
+      return 'Moonshot Ai - Kimi Code'
+    }
+    // Moonshot AI direct API
+    if (host.includes('moonshot') || haystack.includes('moonshot')) {
+      return 'Moonshot AI - API'
     }
   } catch {
     // Fall back to the generic label when the base URL is malformed.

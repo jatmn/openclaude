@@ -123,8 +123,13 @@ function detectProvider(): { name: string; model: string; baseUrl: string; isLoc
       name = 'MiniMax'
     else if (resolvedRequest.transport === 'codex_responses' || baseUrl.includes('chatgpt.com/backend-api/codex'))
       name = 'Codex'
-    else if (/moonshot/i.test(baseUrl) || /kimi/i.test(rawModel))
-      name = 'Moonshot (Kimi)'
+    else if (
+      /api\.kimi\.com/i.test(baseUrl) ||
+      /\bkimi-for-coding\b/i.test(rawModel)
+    )
+      name = 'Moonshot Ai - Kimi Code'
+    else if (/moonshot/i.test(baseUrl) || /\bkimi-k/i.test(rawModel))
+      name = 'Moonshot AI - API'
     else if (/deepseek/i.test(baseUrl) || /deepseek/i.test(rawModel))
       name = 'DeepSeek'
     else if (/openrouter/i.test(baseUrl))

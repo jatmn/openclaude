@@ -88,6 +88,7 @@ const MOONSHOT_API_HOSTS = new Set([
   'api.moonshot.ai',
   'api.moonshot.cn',
 ])
+const KIMI_CODE_API_HOST = 'api.kimi.com'
 
 const COPILOT_HEADERS: Record<string, string> = {
   'User-Agent': 'GitHubCopilotChat/0.26.7',
@@ -153,10 +154,16 @@ function hasGeminiApiHost(baseUrl: string | undefined): boolean {
   }
 }
 
-function isMoonshotBaseUrl(baseUrl: string | undefined): boolean {
+function isMoonshotCompatibleBaseUrl(baseUrl: string | undefined): boolean {
   if (!baseUrl) return false
   try {
-    return MOONSHOT_API_HOSTS.has(new URL(baseUrl).hostname.toLowerCase())
+    const parsed = new URL(baseUrl)
+    const hostname = parsed.hostname.toLowerCase()
+    return (
+      MOONSHOT_API_HOSTS.has(hostname) ||
+      (hostname === KIMI_CODE_API_HOST &&
+        parsed.pathname.toLowerCase().startsWith('/coding'))
+    )
   } catch {
     return false
   }
@@ -498,7 +505,7 @@ function convertMessages(
           })(),
         }
 
-        // Providers that validate reasoning continuity (Moonshot: "thinking
+        // Providers that validate reasoning continuity (Moonshot/Kimi Code: "thinking
         // is enabled but reasoning_content is missing in assistant tool call
         // message at index N" 400) need the original chain-of-thought echoed
         // back on each assistant message that carries a tool_call. We kept
@@ -1486,10 +1493,10 @@ class OpenAIShimMessages {
       request.resolvedModel,
     )
     const openaiMessages = convertMessages(compressedMessages, params.system, {
-      // Moonshot requires every assistant tool-call message to carry
+      // Moonshot/Kimi Code requires every assistant tool-call message to carry
       // reasoning_content when its thinking feature is active. Echo it back
       // from the thinking block we captured on the inbound response.
-      preserveReasoningContent: isMoonshotBaseUrl(request.baseUrl),
+      preserveReasoningContent: isMoonshotCompatibleBaseUrl(request.baseUrl),
     })
 
     const body: Record<string, unknown> = {
@@ -1526,7 +1533,7 @@ class OpenAIShimMessages {
     const isGithubCopilot = isGithub && githubEndpointType === 'copilot'
     const isGithubModels = isGithub && (githubEndpointType === 'models' || githubEndpointType === 'custom')
 
-    const isMoonshot = isMoonshotBaseUrl(request.baseUrl)
+    const isMoonshot = isMoonshotCompatibleBaseUrl(request.baseUrl)
 
     if ((isGithub || isMistral || isLocal || isMoonshot) && body.max_completion_tokens !== undefined) {
       body.max_tokens = body.max_completion_tokens
@@ -1535,9 +1542,9 @@ class OpenAIShimMessages {
 
     // mistral and gemini don't recognize body.store — Gemini returns 400
     // "Invalid JSON payload received. Unknown name 'store': Cannot find field."
-    // Moonshot (api.moonshot.ai/.cn) has not published support for the
-    // parameter either; strip it preemptively to avoid the same class of
-    // error on strict-parse providers.
+    // Moonshot direct API and Kimi Code's OpenAI-compatible coding endpoint
+    // have not published support for the parameter either; strip it
+    // preemptively to avoid the same class of error on strict-parse providers.
     if (isMistral || isGeminiMode() || isMoonshot) {
       delete body.store
     }

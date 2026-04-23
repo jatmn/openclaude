@@ -29,14 +29,14 @@ describe('normalizeMiniMaxUsagePayload', () => {
           windows: [
             {
               label: '5h limit',
-              usedPercent: 7,
-              remaining: 4200,
+              usedPercent: 93,
+              remaining: 300,
               total: 4500,
             },
             {
               label: 'Weekly limit',
-              usedPercent: 4,
-              remaining: 43000,
+              usedPercent: 96,
+              remaining: 2000,
               total: 45000,
             },
           ],
@@ -73,9 +73,101 @@ describe('normalizeMiniMaxUsagePayload', () => {
     })
   })
 
+  test('normalizes MiniMax model_remains subscription payloads', () => {
+    const usage = normalizeMiniMaxUsagePayload({
+      model_remains: [
+        {
+          start_time: 1771588800000,
+          end_time: 1771603200000,
+          remains_time: 5925660,
+          current_interval_total_count: 1500,
+          current_interval_usage_count: 1437,
+          model_name: 'MiniMax-M2.7',
+        },
+      ],
+      base_resp: {
+        status_code: 0,
+        status_msg: 'success',
+      },
+    })
+
+    expect(usage).toMatchObject({
+      availability: 'available',
+      snapshots: [
+        {
+          limitName: 'MiniMax-M2.7',
+          windows: [
+            {
+              label: '5h limit',
+              usedPercent: 96,
+              remaining: 63,
+              total: 1500,
+              resetsAt: '2026-02-20T16:00:00.000Z',
+            },
+          ],
+        },
+      ],
+    })
+  })
+
+  test('treats current_interval_usage_count as used count for MiniMax subscription payloads', () => {
+    const usage = normalizeMiniMaxUsagePayload({
+      model_remains: [
+        {
+          current_interval_total_count: 1500,
+          current_interval_usage_count: 1,
+          model_name: 'MiniMax-M2.7',
+        },
+      ],
+    })
+
+    expect(usage).toMatchObject({
+      availability: 'available',
+      snapshots: [
+        {
+          limitName: 'MiniMax-M2.7',
+          windows: [
+            {
+              label: '5h limit',
+              usedPercent: 0,
+              remaining: 1499,
+              total: 1500,
+            },
+          ],
+        },
+      ],
+    })
+  })
+
+  test('treats MiniMax usage_percent as remaining percentage', () => {
+    const usage = normalizeMiniMaxUsagePayload({
+      model_remains: [
+        {
+          model_name: 'MiniMax-M2.7-highspeed',
+          usage_percent: 96,
+        },
+      ],
+    })
+
+    expect(usage).toMatchObject({
+      availability: 'available',
+      snapshots: [
+        {
+          limitName: 'MiniMax-M2.7-highspeed',
+          windows: [
+            {
+              label: '5h limit',
+              usedPercent: 4,
+            },
+          ],
+        },
+      ],
+    })
+  })
+
   test('returns unknown availability when no quota windows can be parsed', () => {
     const usage = normalizeMiniMaxUsagePayload({
-      message: 'pay as you go key',
+      message: 'quota status unavailable',
       ok: true,
     })
 
@@ -84,7 +176,7 @@ describe('normalizeMiniMaxUsagePayload', () => {
       planType: undefined,
       snapshots: [],
       message:
-        'Usage details are not available for this MiniMax account. This may be a pay-as-you-go key or a plan that does not expose quota status.',
+        'Usage details are not available for this MiniMax account. This plan or MiniMax endpoint may not expose quota status.',
     })
   })
 })

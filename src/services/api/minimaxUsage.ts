@@ -45,7 +45,7 @@ export type MiniMaxUsageData =
 
 const DEFAULT_MINIMAX_BASE_URL = 'https://api.minimax.io/v1'
 const DEFAULT_MINIMAX_UNAVAILABLE_MESSAGE =
-  'Usage details are not available for this MiniMax account. This may be a pay-as-you-go key or a plan that does not expose quota status.'
+  'Usage details are not available for this MiniMax account. This plan or MiniMax endpoint may not expose quota status.'
 
 function isRecord(value: unknown): value is RecordLike {
   return typeof value === 'object' && value !== null
@@ -85,6 +85,16 @@ function toIsoDate(value: unknown): string | undefined {
   return new Date(ms).toISOString()
 }
 
+function toResetIsoDate(value: unknown, key: string): string | undefined {
+  const numeric = asNumber(value)
+  if (/remains?_time/i.test(key) && numeric !== undefined) {
+    const ms = numeric > 604_800 ? numeric : numeric * 1000
+    return new Date(Date.now() + ms).toISOString()
+  }
+
+  return toIsoDate(value)
+}
+
 function readFirstNumber(
   value: RecordLike,
   keys: string[],
@@ -93,6 +103,15 @@ function readFirstNumber(
     const found = asNumber(value[key])
     if (found !== undefined) {
       return found
+    }
+  }
+  return undefined
+}
+
+function readResetTime(value: RecordLike, keys: string[]): string | undefined {
+  for (const key of keys) {
+    if (value[key] !== undefined) {
+      return toResetIsoDate(value[key], key)
     }
   }
   return undefined
@@ -130,6 +149,7 @@ function formatPlanType(value: string | undefined): string | undefined {
 type WindowSpec = {
   label: string
   percentKeys: string[]
+  remainingPercentKeys: string[]
   totalKeys: string[]
   remainingKeys: string[]
   usedKeys: string[]
@@ -140,23 +160,30 @@ function normalizeWindowFromSpec(
   value: RecordLike,
   spec: WindowSpec,
 ): MiniMaxUsageWindow | undefined {
-  const explicitPercent = readFirstNumber(value, spec.percentKeys)
+  const explicitUsedPercent = readFirstNumber(value, spec.percentKeys)
+  const explicitRemainingPercent = readFirstNumber(
+    value,
+    spec.remainingPercentKeys,
+  )
   const total = readFirstNumber(value, spec.totalKeys)
   const remaining = readFirstNumber(value, spec.remainingKeys)
   const used = readFirstNumber(value, spec.usedKeys)
+  const derivedRemaining =
+    total !== undefined && used !== undefined ? total - used : remaining
 
   let usedPercent: number | undefined
-  if (explicitPercent !== undefined) {
-    usedPercent = clampPercent(explicitPercent)
+  if (total !== undefined && total > 0 && used !== undefined) {
+    usedPercent = clampPercent((used / total) * 100)
   } else if (
     total !== undefined &&
     total > 0 &&
-    remaining !== undefined &&
-    remaining <= total
+    remaining !== undefined
   ) {
     usedPercent = clampPercent(((total - remaining) / total) * 100)
-  } else if (total !== undefined && total > 0 && used !== undefined) {
-    usedPercent = clampPercent((used / total) * 100)
+  } else if (explicitUsedPercent !== undefined) {
+    usedPercent = clampPercent(explicitUsedPercent)
+  } else if (explicitRemainingPercent !== undefined) {
+    usedPercent = clampPercent(100 - explicitRemainingPercent)
   }
 
   if (usedPercent === undefined) {
@@ -166,13 +193,9 @@ function normalizeWindowFromSpec(
   return {
     label: spec.label,
     usedPercent,
-    remaining,
+    remaining: derivedRemaining,
     total,
-    resetsAt: toIsoDate(
-      spec.resetKeys
-        .map(key => value[key])
-        .find(candidate => candidate !== undefined),
-    ),
+    resetsAt: readResetTime(value, spec.resetKeys),
   }
 }
 
@@ -193,6 +216,14 @@ function normalizeGenericWindow(value: RecordLike): MiniMaxUsageWindow | undefin
       'usage_percentage',
       'usagePercentage',
     ],
+    remainingPercentKeys: [
+      'usage_percent',
+      'usagePercent',
+      'remaining_percent',
+      'remainingPercent',
+      'percent_remaining',
+      'percentRemaining',
+    ],
     totalKeys: ['total', 'quota', 'limit', 'max', 'entitlement'],
     remainingKeys: ['remaining', 'remain', 'remains', 'left'],
     usedKeys: ['used', 'usage', 'consumed'],
@@ -204,7 +235,15 @@ const WINDOW_SPECS: WindowSpec[] = [
   {
     label: '5h limit',
     percentKeys: ['interval_used_percent', 'intervalUsedPercent'],
+    remainingPercentKeys: [
+      'usage_percent',
+      'usagePercent',
+      'interval_remaining_percent',
+      'intervalRemainingPercent',
+    ],
     totalKeys: [
+      'current_interval_total_count',
+      'currentIntervalTotalCount',
       'max_interval_usage_count',
       'maxIntervalUsageCount',
       'interval_quota',
@@ -213,29 +252,43 @@ const WINDOW_SPECS: WindowSpec[] = [
       'intervalLimit',
     ],
     remainingKeys: [
-      'current_interval_usage_count',
-      'currentIntervalUsageCount',
+      'current_interval_remaining_count',
+      'currentIntervalRemainingCount',
+      'current_interval_remains_count',
+      'currentIntervalRemainsCount',
       'interval_remaining',
       'intervalRemaining',
       'remaining_interval_usage_count',
       'remainingIntervalUsageCount',
     ],
     usedKeys: [
+      'current_interval_usage_count',
+      'currentIntervalUsageCount',
       'interval_used',
       'intervalUsed',
+      'current_interval_used_count',
+      'currentIntervalUsedCount',
       'used_interval_usage_count',
       'usedIntervalUsageCount',
     ],
     resetKeys: [
+      'end_time',
+      'endTime',
       'interval_resets_at',
       'intervalResetsAt',
       'interval_reset_at',
       'intervalResetAt',
+      'remains_time',
+      'remainsTime',
     ],
   },
   {
     label: 'Weekly limit',
     percentKeys: ['weekly_used_percent', 'weeklyUsedPercent'],
+    remainingPercentKeys: [
+      'weekly_remaining_percent',
+      'weeklyRemainingPercent',
+    ],
     totalKeys: [
       'max_weekly_usage_count',
       'maxWeeklyUsageCount',
@@ -245,14 +298,14 @@ const WINDOW_SPECS: WindowSpec[] = [
       'weeklyLimit',
     ],
     remainingKeys: [
-      'current_weekly_usage_count',
-      'currentWeeklyUsageCount',
       'weekly_remaining',
       'weeklyRemaining',
       'remaining_weekly_usage_count',
       'remainingWeeklyUsageCount',
     ],
     usedKeys: [
+      'current_weekly_usage_count',
+      'currentWeeklyUsageCount',
       'weekly_used',
       'weeklyUsed',
       'used_weekly_usage_count',
@@ -268,6 +321,10 @@ const WINDOW_SPECS: WindowSpec[] = [
   {
     label: 'Daily limit',
     percentKeys: ['daily_used_percent', 'dailyUsedPercent'],
+    remainingPercentKeys: [
+      'daily_remaining_percent',
+      'dailyRemainingPercent',
+    ],
     totalKeys: [
       'max_daily_usage_count',
       'maxDailyUsageCount',
@@ -277,14 +334,14 @@ const WINDOW_SPECS: WindowSpec[] = [
       'dailyLimit',
     ],
     remainingKeys: [
-      'current_daily_usage_count',
-      'currentDailyUsageCount',
       'daily_remaining',
       'dailyRemaining',
       'remaining_daily_usage_count',
       'remainingDailyUsageCount',
     ],
     usedKeys: [
+      'current_daily_usage_count',
+      'currentDailyUsageCount',
       'daily_used',
       'dailyUsed',
       'used_daily_usage_count',
@@ -314,7 +371,12 @@ const SNAPSHOT_HINT_KEYS = [
   'remain',
   'remains',
   'left',
+  'usage_percent',
+  'usagePercent',
+  'current_interval_total_count',
   'current_interval_usage_count',
+  'current_interval_remaining_count',
+  'current_interval_remains_count',
   'max_interval_usage_count',
   'current_weekly_usage_count',
   'max_weekly_usage_count',
@@ -424,10 +486,14 @@ export function normalizeMiniMaxUsagePayload(payload: unknown): MiniMaxUsageData
   const candidates: unknown[] = [
     payload.data,
     payload.result,
+    payload.model_remains,
+    payload.modelRemains,
     payload.remains,
     payload.usage,
     payload.quotas,
     payload.models,
+    isRecord(payload.data) ? payload.data.model_remains : undefined,
+    isRecord(payload.data) ? payload.data.modelRemains : undefined,
     isRecord(payload.data) ? payload.data.models : undefined,
     isRecord(payload.data) ? payload.data.quotas : undefined,
     isRecord(payload.data) ? payload.data.remains : undefined,

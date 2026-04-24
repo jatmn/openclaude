@@ -991,7 +991,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
     if (isActiveSavedProfile) {
       setAppState(prev => ({
         ...prev,
-        mainLoopModel: saved.model,
+        mainLoopModel: getPrimaryModel(saved.model),
         mainLoopModelForSession: null,
       }))
     }

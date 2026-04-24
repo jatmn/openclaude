@@ -46,6 +46,7 @@ export const DEFAULT_MISTRAL_MODEL = 'devstral-latest'
 
 const PROFILE_ENV_KEYS = [
   'CLAUDE_CODE_USE_OPENAI',
+  'CLAUDE_CODE_USE_GITHUB',
   'CLAUDE_CODE_USE_GEMINI',
   'CLAUDE_CODE_USE_MISTRAL',
   'CLAUDE_CODE_USE_BEDROCK',
@@ -876,7 +877,12 @@ export async function buildLaunchEnv(options: {
     (useShellOpenAIConfig ? shellOpenAIModel : undefined) ||
     (usePersistedOpenAIConfig ? persistedOpenAIModel : undefined) ||
     defaultOpenAIModel
-  env.OPENAI_API_KEY = processEnv.OPENAI_API_KEY || persistedEnv.OPENAI_API_KEY
+  const openAIKey = processEnv.OPENAI_API_KEY || persistedEnv.OPENAI_API_KEY
+  if (openAIKey) {
+    env.OPENAI_API_KEY = openAIKey
+  } else {
+    delete env.OPENAI_API_KEY
+  }
   if (shellOpenAICustomHeaders || persistedOpenAICustomHeaders) {
     env.OPENAI_CUSTOM_HEADERS =
       shellOpenAICustomHeaders || persistedOpenAICustomHeaders
@@ -915,6 +921,10 @@ export async function buildStartupEnvFromProfile(options?: {
   // "banner shows gpt-4o / api.openai.com even though my saved profile is
   // Moonshot" bug.
   if (profileManagedEnv) {
+    return processEnv
+  }
+
+  if (isEnvTruthy(processEnv.CLAUDE_CODE_USE_GITHUB)) {
     return processEnv
   }
 

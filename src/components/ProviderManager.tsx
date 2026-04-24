@@ -50,6 +50,7 @@ import {
   formatCustomHeadersInput,
   parseCustomHeadersInput,
 } from '../utils/customHeaders.js'
+import { clearStartupProviderOverrides } from '../utils/providerStartupOverrides.js'
 import { redactUrlForDisplay } from '../utils/urlRedaction.js'
 import { updateSettingsForSource } from '../utils/settings/settings.js'
 import {
@@ -688,17 +689,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
   }
 
   function clearStartupProviderOverrideFromUserSettings(): string | null {
-    const { error } = updateSettingsForSource('userSettings', {
-      env: {
-        CLAUDE_CODE_USE_OPENAI: undefined as any,
-        CLAUDE_CODE_USE_GEMINI: undefined as any,
-        CLAUDE_CODE_USE_GITHUB: undefined as any,
-        CLAUDE_CODE_USE_BEDROCK: undefined as any,
-        CLAUDE_CODE_USE_VERTEX: undefined as any,
-        CLAUDE_CODE_USE_FOUNDRY: undefined as any,
-      },
-    })
-    return error ? error.message : null
+    return clearStartupProviderOverrides()
   }
 
   function buildCodexOAuthActivationMessage(options: {

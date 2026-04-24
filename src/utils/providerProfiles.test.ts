@@ -784,6 +784,22 @@ describe('addProviderProfile', () => {
 
     expect(result).toBeNull()
   })
+
+  test('rejects invalid custom header names', async () => {
+    const { addProviderProfile } = await importFreshProviderProfileModules()
+
+    const result = addProviderProfile({
+      name: 'Unsafe Provider',
+      baseUrl: 'https://api.example.com/v1',
+      model: 'unsafe-model',
+      headers: {
+        'X Bad': 'broken',
+        'X-Provider-Org': 'demo-team',
+      },
+    })
+
+    expect(result).toBeNull()
+  })
 })
 
 describe('deleteProviderProfile', () => {

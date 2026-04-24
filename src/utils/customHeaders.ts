@@ -35,6 +35,11 @@ type ParsedCustomHeadersInput = {
 
 const HEADER_NAME_TOKEN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/
 
+function isValidCustomHeaderName(name: string): boolean {
+  const trimmedName = name.trim()
+  return trimmedName.length > 0 && HEADER_NAME_TOKEN.test(trimmedName)
+}
+
 function isBlockedCustomHeaderName(name: string): boolean {
   return BLOCKED_CUSTOM_HEADER_NAMES.has(name.trim().toLowerCase())
 }
@@ -49,6 +54,7 @@ function sanitizeHeaderEntries(
     ] as const)
     .filter(([name, value]) =>
       name.length > 0 &&
+      isValidCustomHeaderName(name) &&
       value.length > 0 &&
       !isBlockedCustomHeaderName(name),
     )
@@ -249,6 +255,29 @@ export function findBlockedCustomHeaderNames(
   return [...blocked.values()]
 }
 
+export function findInvalidCustomHeaderNames(
+  headers: Record<string, unknown> | null | undefined,
+): string[] {
+  if (!headers) {
+    return []
+  }
+
+  const invalid = new Map<string, string>()
+  for (const [rawName] of Object.entries(headers)) {
+    const name = rawName.trim()
+    if (!name || isValidCustomHeaderName(name)) {
+      continue
+    }
+
+    const normalized = name.toLowerCase()
+    if (!invalid.has(normalized)) {
+      invalid.set(normalized, name)
+    }
+  }
+
+  return [...invalid.values()]
+}
+
 export function parseCustomHeadersEnv(
   value: string | undefined,
   options: ParseCustomHeadersEnvOptions = {},
@@ -279,6 +308,13 @@ export function parseCustomHeadersEnv(
       emitCustomHeaderWarning(
         options,
         `Ignoring malformed ${options.sourceName ?? 'custom headers'} entry "${trimmedHeaderString}". Header name is required.`,
+      )
+      continue
+    }
+    if (!isValidCustomHeaderName(name)) {
+      emitCustomHeaderWarning(
+        options,
+        `Ignoring malformed ${options.sourceName ?? 'custom headers'} entry "${trimmedHeaderString}". Header name must be a valid HTTP token.`,
       )
       continue
     }
@@ -356,6 +392,12 @@ export function parseCustomHeadersInput(
     const rawHeaderValue = trimmed.slice(colonIdx + 1).trim()
     if (!name) {
       errors.push(`Malformed header entry "${trimmed}". Header name is required.`)
+      continue
+    }
+    if (!isValidCustomHeaderName(name)) {
+      errors.push(
+        `Malformed header entry "${trimmed}". Header name must be a valid HTTP token.`,
+      )
       continue
     }
     const parsedHeaderValue = parseCustomHeaderValue(rawHeaderValue, {

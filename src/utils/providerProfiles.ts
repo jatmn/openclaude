@@ -18,6 +18,7 @@ import {
 } from './providerProfile.js'
 import {
   findBlockedCustomHeaderNames,
+  findInvalidCustomHeaderNames,
   formatCustomHeadersEnv,
   sanitizeCustomHeaders,
 } from './customHeaders.js'
@@ -128,6 +129,9 @@ function toProfile(
   id: string = nextProfileId(),
 ): ProviderProfile | null {
   if (findBlockedCustomHeaderNames(input.headers).length > 0) {
+    return null
+  }
+  if (findInvalidCustomHeaderNames(input.headers).length > 0) {
     return null
   }
 

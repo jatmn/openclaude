@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 
 import {
   findBlockedCustomHeaderNames,
+  findInvalidCustomHeaderNames,
   formatCustomHeadersEnv,
   formatCustomHeadersInput,
   hasCustomAuthHeader,
@@ -49,11 +50,11 @@ test('parseCustomHeadersEnv preserves very long header values', () => {
   })
 })
 
-test('parseCustomHeadersEnv preserves Unicode header names and values', () => {
+test('parseCustomHeadersEnv preserves Unicode header values for valid header names', () => {
   expect(
-    parseCustomHeadersEnv('X-Äuth: värde'),
+    parseCustomHeadersEnv('X-Auth: värde'),
   ).toEqual({
-    'X-Äuth': 'värde',
+    'X-Auth': 'värde',
   })
 })
 
@@ -150,6 +151,25 @@ test('parseCustomHeadersEnv reports malformed and blocked env entries through wa
   ])
 })
 
+test('parseCustomHeadersEnv warns and drops invalid HTTP header names', () => {
+  const warnings: string[] = []
+
+  expect(
+    parseCustomHeadersEnv('X Bad: value\nX-App: cli', {
+      sourceName: 'OPENAI_CUSTOM_HEADERS',
+      onWarning: warning => {
+        warnings.push(warning)
+      },
+    }),
+  ).toEqual({
+    'X-App': 'cli',
+  })
+
+  expect(warnings).toEqual([
+    'Ignoring malformed OPENAI_CUSTOM_HEADERS entry "X Bad: value". Header name must be a valid HTTP token.',
+  ])
+})
+
 test('parseCustomHeadersEnv drops blocked header names', () => {
   expect(
     parseCustomHeadersEnv('Content-Type: text/plain\nX-App: cli'),
@@ -170,6 +190,18 @@ test('sanitizeCustomHeaders drops blocked header names', () => {
   })
 })
 
+test('sanitizeCustomHeaders drops invalid header names', () => {
+  expect(
+    sanitizeCustomHeaders({
+      'X Bad': 'bad',
+      'X[Nope]': 'also-bad',
+      'X-App': 'cli',
+    }),
+  ).toEqual({
+    'X-App': 'cli',
+  })
+})
+
 test('findBlockedCustomHeaderNames reports blocked names with original casing', () => {
   expect(
     findBlockedCustomHeaderNames({
@@ -178,6 +210,16 @@ test('findBlockedCustomHeaderNames reports blocked names with original casing', 
       'X-App': 'cli',
     }),
   ).toEqual(['Host', 'content-type'])
+})
+
+test('findInvalidCustomHeaderNames reports invalid names with original casing', () => {
+  expect(
+    findInvalidCustomHeaderNames({
+      'X Bad': 'bad',
+      'X[Nope]': 'also-bad',
+      'X-App': 'cli',
+    }),
+  ).toEqual(['X Bad', 'X[Nope]'])
 })
 
 test('parseCustomHeadersInput reports malformed and blocked entries', () => {
@@ -190,6 +232,20 @@ test('parseCustomHeadersInput reports malformed and blocked entries', () => {
     errors: [
       'Malformed header entry "api-key secret". Use "Name: value".',
       'Blocked header names are not allowed: Content-Type.',
+    ],
+  })
+})
+
+test('parseCustomHeadersInput rejects invalid HTTP header names', () => {
+  expect(
+    parseCustomHeadersInput('X Bad: value; X[Nope]: bad; X-App: cli'),
+  ).toEqual({
+    headers: {
+      'X-App': 'cli',
+    },
+    errors: [
+      'Malformed header entry "X Bad: value". Header name must be a valid HTTP token.',
+      'Malformed header entry "X[Nope]: bad". Header name must be a valid HTTP token.',
     ],
   })
 })

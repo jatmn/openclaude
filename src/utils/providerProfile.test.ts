@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 
-import { DEFAULT_CODEX_BASE_URL } from '../services/api/providerConfig.ts'
+import { DEFAULT_CODEX_BASE_URL } from '../services/api/providerConfig.js'
 import {
   applySavedProfileToCurrentSession,
   buildStartupEnvFromProfile,
@@ -25,7 +25,7 @@ import {
   sanitizeProviderConfigValue,
   selectAutoProfile,
   type ProfileFile,
-} from './providerProfile.ts'
+} from './providerProfile.js'
 
 function makeJwt(payload: Record<string, unknown>): string {
   const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' }))
@@ -44,7 +44,7 @@ function profile(profile: ProfileFile['profile'], env: ProfileFile['env']): Prof
 
 async function importFreshProviderProfileModule() {
   const nonce = `${Date.now()}-${Math.random()}`
-  return import(`./providerProfile.ts?ts=${nonce}`)
+  return import(`./providerProfile.js?ts=${nonce}`)
 }
 
 const missingCodexAuthPath = join(tmpdir(), 'openclaude-missing-codex-auth.json')
@@ -497,7 +497,7 @@ test('clearPersistedCodexOAuthProfile removes only persisted Codex OAuth profile
 
   try {
     const providerProfileModule = await import(
-      `./providerProfile.ts?ts=${Date.now()}-${Math.random()}`
+      `./providerProfile.js?ts=${Date.now()}-${Math.random()}`
     )
     const {
       PROFILE_FILE_NAME,
@@ -587,7 +587,7 @@ test('buildStartupEnvFromProfile does not inject stored access token for adc pro
 })
 
 test('buildStartupEnvFromProfile leaves explicit provider selections untouched', async () => {
-  const processEnv = {
+  const processEnv: NodeJS.ProcessEnv = {
     CLAUDE_CODE_USE_GEMINI: '1',
     GEMINI_API_KEY: 'gem-live',
     GEMINI_MODEL: 'gemini-2.0-flash',
@@ -609,6 +609,37 @@ test('buildStartupEnvFromProfile leaves explicit provider selections untouched',
   assert.equal(env.GEMINI_BASE_URL, 'https://generativelanguage.googleapis.com/v1beta/openai')
   assert.equal(env.GEMINI_AUTH_MODE, 'api-key')
   assert.equal(env.OPENAI_API_KEY, undefined)
+})
+
+test('legacy openai saved profiles still deserialize and rebuild startup env', async () => {
+  const tempDir = mkdtempSync(join(tmpdir(), 'openclaude-provider-'))
+
+  try {
+    saveProfileFile(
+      profile('openai', {
+        OPENAI_BASE_URL: 'https://api.openai.com/v1',
+        OPENAI_MODEL: 'gpt-4o',
+        OPENAI_API_KEY: 'sk-legacy-live',
+      }),
+      { cwd: tempDir },
+    )
+
+    const persisted = loadProfileFile({ cwd: tempDir })
+    assert.notEqual(persisted, null)
+    assert.equal(persisted?.profile, 'openai')
+
+    const env = await buildStartupEnvFromProfile({
+      persisted,
+      processEnv: {},
+    })
+
+    assert.equal(env.CLAUDE_CODE_USE_OPENAI, '1')
+    assert.equal(env.OPENAI_BASE_URL, 'https://api.openai.com/v1')
+    assert.equal(env.OPENAI_MODEL, 'gpt-4o')
+    assert.equal(env.OPENAI_API_KEY, 'sk-legacy-live')
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true })
+  }
 })
 
 test('bedrock persisted profiles load and rebuild the dedicated startup env', async () => {
@@ -645,7 +676,7 @@ test('bedrock persisted profiles load and rebuild the dedicated startup env', as
 })
 
 test('buildStartupEnvFromProfile preserves explicit GitHub provider settings when the legacy file is stale', async () => {
-  const processEnv = {
+  const processEnv: NodeJS.ProcessEnv = {
     CLAUDE_CODE_USE_GITHUB: '1',
     OPENAI_MODEL: 'github:copilot',
   }
@@ -669,7 +700,7 @@ test('buildStartupEnvFromProfile preserves explicit GitHub provider settings whe
 
 test('applySavedProfileToCurrentSession can switch away from GitHub provider env', async () => {
   const { applySavedProfileToCurrentSession } = await importFreshProviderProfileModule()
-  const processEnv = {
+  const processEnv: NodeJS.ProcessEnv = {
     CLAUDE_CODE_USE_GITHUB: '1',
     OPENAI_MODEL: 'github:copilot',
   }

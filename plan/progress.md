@@ -3,7 +3,7 @@
 **Master Plan**: [`plan/cheeky-cooking-moon.md`](./cheeky-cooking-moon.md)
 **Phase**: Phase 1 — Foundation and Parity
 **Goal**: Establish the descriptor system without regressing current behavior. Get all metadata into one place before deeper runtime migration starts.
-**Last Updated**: 2026-04-25 15:22
+**Last Updated**: 2026-04-25 16:23
 
 ---
 
@@ -115,28 +115,33 @@
 
 ## Phase 1E: CLI Flag and Usage Surface Migration
 
-**Status**: `NOT_STARTED` | `IN_PROGRESS` | `BLOCKED` | `COMPLETE`
+**Status**: `COMPLETE`
 
-- [ ] Derive valid provider names from descriptors/compatibility in `src/utils/providerFlag.ts`
-- [ ] Preserve `--provider ollama`, `--provider minimax` semantics
-- [ ] Implement `getUsageDescriptor(activeId)` in `src/commands/usage/index.ts`
-- [ ] Anthropic usage supported, MiniMax preserved, unsupported shows neutral fallback
-- [ ] Add usage routing tests — supported, unsupported, gateway delegation
+- [x] Derive valid provider names from descriptors/compatibility in `src/utils/providerFlag.ts`
+- [x] Preserve `--provider ollama`, `--provider minimax` semantics
+- [x] Implement `getUsageDescriptor(activeId)` in `src/commands/usage/index.ts`
+- [x] Anthropic usage supported, MiniMax preserved, unsupported shows neutral fallback
+- [x] Add usage routing tests — supported, unsupported, gateway delegation
 
 ---
 
 ## Phase 1F: Phase-1 Verification and Merge Pass
 
-**Status**: `NOT_STARTED` | `IN_PROGRESS` | `BLOCKED` | `COMPLETE`
+**Status**: `IN_PROGRESS`
 
-- [ ] Registry unit and validation tests pass
-- [ ] Compatibility mapping tests — every preset has valid descriptor mapping
-- [ ] Saved-profile compatibility tests — old profiles deserialize, unknown providers preserved
-- [ ] Run `src/utils/*provider*.test.ts` — all green
-- [ ] Run `src/utils/model/*.test.ts` — all green
-- [ ] Run profile startup/env tests — all green
+- [x] Registry unit and validation tests pass
+- [x] Compatibility mapping tests — every preset has valid descriptor mapping
+- [x] Saved-profile compatibility tests — old profiles deserialize, unknown providers preserved
+- [x] Run `src/utils/*provider*.test.ts` — all green
+- [x] Run `src/utils/model/*.test.ts` — all green
+- [x] Run profile startup/env tests — all green
 - [ ] `tsc --noEmit` across project — zero errors
-- [ ] Cross-check: no provider from migration inventory is missing a descriptor file
+- [x] Cross-check: no provider from migration inventory is missing a descriptor file
+
+Notes:
+- Re-ran targeted Phase 1E/1F verification on 2026-04-25 after the latest compatibility/usage/provider changes, including loader/registry sanity coverage; all targeted suites are green.
+- Filtered `bun run typecheck` output for the Phase 1 files changed in this branch is now clean.
+- Repo-wide `bun run typecheck` is still red in unrelated existing areas such as `src/__tests__/providerCounts.test.ts`, `src/assistant/sessionHistory.ts`, `src/bootstrap/state.ts`, and multiple `src/bridge/` and `src/cli/` files; that baseline issue is not a new Phase 1 blocker introduced by this branch.
 
 ---
 
@@ -145,7 +150,7 @@
 - [ ] **1A merged** — registry skeleton + tests in main
 - [ ] **1B+1C merged** — all descriptor files + brand/model index in main
 - [x] **1D merged** — config compatibility in main
-- [ ] **1E merged** — CLI/usage surfaces in main
+- [x] **1E merged** — CLI/usage surfaces in main
 - [ ] **1F complete** — all tests green, exit criteria met, ready for Phase 2
 
 ---

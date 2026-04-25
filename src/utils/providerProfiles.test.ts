@@ -87,7 +87,9 @@ afterEach(() => {
 
 async function importFreshProviderProfileModules() {
   mock.restore()
+  const actualConfig = await import(`./config.js?ts=${Date.now()}-${Math.random()}`)
   mock.module('./config.js', () => ({
+    ...actualConfig,
     getGlobalConfig: () => mockConfigState,
     saveGlobalConfig: (
       updater: (current: MockConfigState) => MockConfigState,
@@ -336,6 +338,30 @@ describe('applyProviderProfileToProcessEnv', () => {
   })
 })
 
+describe('getProviderProfiles', () => {
+  test('preserves unknown stored provider ids during sanitization', async () => {
+    const { getProviderProfiles } = await importFreshProviderProfileModules()
+
+    saveMockGlobalConfig(current => ({
+      ...current,
+      providerProfiles: [
+        buildProfile({
+          id: 'moonshot_vendor_prof',
+          name: 'Moonshot Vendor',
+          provider: 'moonshot',
+          baseUrl: 'https://api.moonshot.ai/v1',
+          model: 'kimi-k2.5',
+        }),
+      ],
+    }))
+
+    const profiles = getProviderProfiles()
+
+    expect(profiles).toHaveLength(1)
+    expect(profiles[0]?.provider).toBe('moonshot')
+  })
+})
+
 describe('applyActiveProviderProfileFromConfig', () => {
   test('does not override explicit startup provider selection', async () => {
     const { applyActiveProviderProfileFromConfig } =
@@ -386,8 +412,8 @@ describe('applyActiveProviderProfileFromConfig', () => {
     } as any)
 
     expect(applied?.id).toBe('saved_moonshot')
-    expect(process.env.OPENAI_BASE_URL).toBe('https://api.moonshot.ai/v1')
-    expect(process.env.OPENAI_MODEL).toBe('kimi-k2.6')
+    expect(process.env.OPENAI_BASE_URL!).toBe('https://api.moonshot.ai/v1')
+    expect(process.env.OPENAI_MODEL!).toBe('kimi-k2.6')
   })
 
   test('still respects complete shell selection with USE flag + BASE_URL', async () => {
@@ -1156,7 +1182,7 @@ describe('setActiveProviderProfile model cache', () => {
     setActiveProviderProfile('multi_provider')
 
     const cache = getActiveOpenAIModelOptionsCache()
-    const cacheValues = cache.map(opt => opt.value)
+    const cacheValues = cache.map((opt: { value: string }) => opt.value)
     expect(cacheValues).toContain('glm-4.7')
     expect(cacheValues).toContain('glm-4.7-flash')
     expect(cacheValues).toContain('glm-4.7-plus')

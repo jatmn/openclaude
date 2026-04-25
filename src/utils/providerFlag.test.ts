@@ -94,6 +94,15 @@ describe('applyProviderFlag - anthropic', () => {
   })
 })
 
+describe('VALID_PROVIDERS', () => {
+  test('includes descriptor-backed preset and route ids', () => {
+    expect(VALID_PROVIDERS).toContain('deepseek')
+    expect(VALID_PROVIDERS).toContain('moonshotai')
+    expect(VALID_PROVIDERS).toContain('openrouter')
+    expect(VALID_PROVIDERS).toContain('atomic-chat')
+  })
+})
+
 describe('applyProviderFlag - openai', () => {
   test('sets CLAUDE_CODE_USE_OPENAI=1', () => {
     const result = applyProviderFlag('openai', [])
@@ -152,8 +161,8 @@ describe('applyProviderFlag - ollama', () => {
     const result = applyProviderFlag('ollama', [])
     expect(result.error).toBeUndefined()
     expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
-    expect(process.env.OPENAI_BASE_URL).toBe('http://localhost:11434/v1')
-    expect(process.env.OPENAI_API_KEY).toBe('ollama')
+    expect(process.env.OPENAI_BASE_URL!).toBe('http://localhost:11434/v1')
+    expect(process.env.OPENAI_API_KEY!).toBe('ollama')
   })
 
   test('sets OPENAI_MODEL when --model is provided', () => {
@@ -175,6 +184,35 @@ describe('applyProviderFlag - ollama', () => {
 
     expect(process.env.OPENAI_BASE_URL).toBe('http://remote-ollama.internal:11434/v1')
     expect(process.env.OPENAI_API_KEY).toBe('secret-token')
+  })
+})
+
+describe('applyProviderFlag - descriptor-backed openai-compatible routes', () => {
+  test('deepseek applies generic openai-compatible routing with descriptor defaults', () => {
+    const result = applyProviderFlag('deepseek', [])
+
+    expect(result.error).toBeUndefined()
+    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
+    expect(process.env.OPENAI_BASE_URL).toBe('https://api.deepseek.com/v1')
+  })
+
+  test('openrouter applies gateway defaults from descriptors', () => {
+    const result = applyProviderFlag('openrouter', [])
+
+    expect(result.error).toBeUndefined()
+    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
+    expect(process.env.OPENAI_BASE_URL).toBe('https://openrouter.ai/api/v1')
+  })
+})
+
+describe('applyProviderFlag - minimax', () => {
+  test('preserves MiniMax default base URL and model semantics', () => {
+    const result = applyProviderFlag('minimax', [])
+
+    expect(result.error).toBeUndefined()
+    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
+    expect(process.env.OPENAI_BASE_URL).toBe('https://api.minimax.io/v1')
+    expect(process.env.OPENAI_MODEL).toBe('MiniMax-M2.5')
   })
 })
 
@@ -200,8 +238,8 @@ describe('applyProviderFlagFromArgs', () => {
 
     expect(result?.error).toBeUndefined()
     expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
-    expect(process.env.OPENAI_BASE_URL).toBe('http://localhost:11434/v1')
-    expect(process.env.OPENAI_API_KEY).toBe('ollama')
+    expect(process.env.OPENAI_BASE_URL!).toBe('http://localhost:11434/v1')
+    expect(process.env.OPENAI_API_KEY!).toBe('ollama')
     expect(process.env.OPENAI_MODEL).toBe('qwen2.5:3b')
   })
 

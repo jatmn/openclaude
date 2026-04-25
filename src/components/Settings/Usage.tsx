@@ -2,6 +2,7 @@ import { c as _c } from "react-compiler-runtime";
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { extraUsage as extraUsageCommand } from 'src/commands/extra-usage/index.js';
+import { getUsageDescriptor } from 'src/commands/usage/index.js';
 import { formatCost } from 'src/cost-tracker.js';
 import { getSubscriptionType } from 'src/utils/auth.js';
 import { useTerminalSize } from '../../hooks/useTerminalSize.js';
@@ -26,7 +27,7 @@ type LimitBarProps = {
   showTimeInReset?: boolean;
   extraSubtext?: string;
 };
-function LimitBar(t0) {
+function LimitBar(t0: LimitBarProps) {
   const $ = _c(34);
   const {
     title,
@@ -269,33 +270,24 @@ function AnthropicUsage(): React.ReactNode {
 }
 export function Usage(): React.ReactNode {
   const provider = getAPIProvider();
+  const usageDescriptor = getUsageDescriptor(provider);
   if (provider === 'codex') {
     return <CodexUsage />;
   }
-  if (provider === 'minimax') {
+  if (usageDescriptor.resolvedId === 'minimax' && usageDescriptor.supported) {
     return <MiniMaxUsage />;
   }
-  if (provider !== 'firstParty') {
-    const providerLabel = {
-      openai: 'this OpenAI-compatible provider',
-      gemini: 'Google Gemini',
-      github: 'GitHub Models',
-      mistral: 'Mistral',
-      'nvidia-nim': 'NVIDIA NIM',
-      bedrock: 'AWS Bedrock',
-      vertex: 'Google Vertex AI',
-      foundry: 'Microsoft Foundry'
-    }[provider] ?? 'this provider';
-    return <UnsupportedUsage providerLabel={providerLabel} />;
+  if (usageDescriptor.resolvedId === 'anthropic' && usageDescriptor.supported) {
+    return <AnthropicUsage />;
   }
-  return <AnthropicUsage />;
+  return <UnsupportedUsage providerLabel={usageDescriptor.activeLabel} />;
 }
 type ExtraUsageSectionProps = {
   extraUsage: ExtraUsage;
   maxWidth: number;
 };
 const EXTRA_USAGE_SECTION_TITLE = 'Extra usage';
-function ExtraUsageSection(t0) {
+function ExtraUsageSection(t0: ExtraUsageSectionProps) {
   const $ = _c(20);
   const {
     extraUsage,

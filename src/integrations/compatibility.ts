@@ -16,7 +16,7 @@ export const PRESET_VENDOR_MAP: Array<{
   { preset: 'moonshotai', vendorId: 'moonshot' },
   { preset: 'deepseek', vendorId: 'deepseek' },
   { preset: 'gemini', vendorId: 'gemini' },
-  { preset: 'mistral', vendorId: 'mistral' },
+  { preset: 'mistral', vendorId: 'openai', gatewayId: 'mistral' },
   { preset: 'together', vendorId: 'openai', gatewayId: 'together' },
   { preset: 'groq', vendorId: 'openai', gatewayId: 'groq' },
   { preset: 'azure-openai', vendorId: 'openai', gatewayId: 'azure-openai' },

@@ -12,9 +12,19 @@
  *   openclaude --provider anthropic   (default, no-op)
  */
 
-export const VALID_PROVIDERS = [
+import '../integrations/index.js'
+import {
+  ensureIntegrationsLoaded,
+  getAllGateways,
+  getAllVendors,
+  getGateway,
+  getVendor,
+  resolveProfileRoute,
+} from '../integrations/index.js'
+import { PRESET_VENDOR_MAP } from '../integrations/compatibility.js'
+
+const PREFERRED_PROVIDER_ORDER = [
   'anthropic',
-  'bankr',
   'openai',
   'gemini',
   'mistral',
@@ -24,9 +34,31 @@ export const VALID_PROVIDERS = [
   'ollama',
   'nvidia-nim',
   'minimax',
+  'bankr',
 ] as const
 
-export type ProviderFlagName = (typeof VALID_PROVIDERS)[number]
+function buildValidProviders(): string[] {
+  ensureIntegrationsLoaded()
+
+  const discovered = new Set<string>([
+    ...PRESET_VENDOR_MAP.map(mapping => mapping.preset),
+    ...getAllVendors().map(vendor => vendor.id),
+    ...getAllGateways().map(gateway => gateway.id),
+  ])
+
+  const preferred = PREFERRED_PROVIDER_ORDER.filter(provider =>
+    discovered.has(provider),
+  )
+  const remainder = Array.from(discovered)
+    .filter(provider => !preferred.includes(provider as (typeof PREFERRED_PROVIDER_ORDER)[number]))
+    .sort()
+
+  return [...preferred, ...remainder]
+}
+
+export const VALID_PROVIDERS = buildValidProviders()
+
+export type ProviderFlagName = string
 
 /**
  * Extract the value of --provider from argv.
@@ -64,6 +96,24 @@ function parseModelFlag(args: string[]): string | null {
   return value
 }
 
+function getRouteDefaults(provider: string): {
+  defaultBaseUrl?: string
+} {
+  ensureIntegrationsLoaded()
+
+  const route = resolveProfileRoute(provider)
+  const vendor =
+    getVendor(route.vendorId) ??
+    (route.routeId !== route.vendorId ? getVendor(route.routeId) : undefined)
+  const gateway =
+    (route.gatewayId ? getGateway(route.gatewayId) : undefined) ??
+    getGateway(route.routeId)
+
+  return {
+    defaultBaseUrl: gateway?.defaultBaseUrl ?? vendor?.defaultBaseUrl,
+  }
+}
+
 /**
  * Apply a provider name to process.env.
  * Sets the required CLAUDE_CODE_USE_* flag and any provider-specific
@@ -76,7 +126,7 @@ export function applyProviderFlag(
   provider: string,
   args: string[],
 ): { error?: string } {
-  if (!(VALID_PROVIDERS as readonly string[]).includes(provider)) {
+  if (!VALID_PROVIDERS.includes(provider)) {
     return {
       error: `Unknown provider "${provider}". Valid providers: ${VALID_PROVIDERS.join(', ')}`,
     }
@@ -90,8 +140,9 @@ export function applyProviderFlag(
   delete process.env.CLAUDE_CODE_USE_VERTEX
 
   const model = parseModelFlag(args)
+  const { defaultBaseUrl } = getRouteDefaults(provider)
 
-  switch (provider as ProviderFlagName) {
+  switch (provider) {
     case 'anthropic':
       // Default — no env vars needed
       break
@@ -126,9 +177,7 @@ export function applyProviderFlag(
 
     case 'ollama':
       process.env.CLAUDE_CODE_USE_OPENAI = '1'
-      if (!process.env.OPENAI_BASE_URL) {
-        process.env.OPENAI_BASE_URL = 'http://localhost:11434/v1'
-      }
+      process.env.OPENAI_BASE_URL ??= defaultBaseUrl ?? 'http://localhost:11434/v1'
       if (!process.env.OPENAI_API_KEY) {
         process.env.OPENAI_API_KEY = 'ollama'
       }
@@ -137,7 +186,7 @@ export function applyProviderFlag(
 
     case 'nvidia-nim':
       process.env.CLAUDE_CODE_USE_OPENAI = '1'
-      process.env.OPENAI_BASE_URL ??= 'https://integrate.api.nvidia.com/v1'
+      process.env.OPENAI_BASE_URL ??= defaultBaseUrl ?? 'https://integrate.api.nvidia.com/v1'
       process.env.NVIDIA_NIM = '1'
       process.env.OPENAI_MODEL ??= 'nvidia/llama-3.1-nemotron-70b-instruct'
       if (model) process.env.OPENAI_MODEL = model
@@ -145,19 +194,27 @@ export function applyProviderFlag(
 
     case 'minimax':
       process.env.CLAUDE_CODE_USE_OPENAI = '1'
-      process.env.OPENAI_BASE_URL ??= 'https://api.minimax.io/v1'
+      process.env.OPENAI_BASE_URL ??= defaultBaseUrl ?? 'https://api.minimax.io/v1'
       process.env.OPENAI_MODEL ??= 'MiniMax-M2.5'
       if (model) process.env.OPENAI_MODEL = model
       break
 
     case 'bankr':
       process.env.CLAUDE_CODE_USE_OPENAI = '1'
-      process.env.OPENAI_BASE_URL ??= 'https://llm.bankr.bot/v1'
+      process.env.OPENAI_BASE_URL ??= defaultBaseUrl ?? 'https://llm.bankr.bot/v1'
       process.env.OPENAI_MODEL ??= 'claude-opus-4.6'
       if (model) process.env.OPENAI_MODEL = model
       if (process.env.BNKR_API_KEY && !process.env.OPENAI_API_KEY) {
         process.env.OPENAI_API_KEY = process.env.BNKR_API_KEY
       }
+      break
+
+    default:
+      process.env.CLAUDE_CODE_USE_OPENAI = '1'
+      if (defaultBaseUrl) {
+        process.env.OPENAI_BASE_URL ??= defaultBaseUrl
+      }
+      if (model) process.env.OPENAI_MODEL = model
       break
   }
 

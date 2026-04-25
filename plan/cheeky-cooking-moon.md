@@ -20,17 +20,19 @@ This plan introduces a descriptor registry under `src/integrations/` so that:
 - future integrations can be added with additive descriptor files instead of scattered switch edits
 - adding a new gateway is usually a one-file change, or a two-file change when it needs a large manual catalog
 
-At a high level, the plan has four major components:
+At a high level, the plan has five major components:
 
 1. Defines a descriptor model for vendors, gateways, models, brands, and anthropic proxies.
 2. Migrates current provider metadata into a shared registry while preserving existing runtime behavior.
-3. Moves consumer surfaces onto descriptor-backed metadata in phases, with verification checkpoints between each phase.
-4. Adds a dedicated documentation phase so the resulting architecture is teachable and maintainable for future contributors.
+3. Builds a per-route model discovery cache service (`src/integrations/discoveryCache.ts`) that supports TTL-based expiration, stale fallback, background refresh, and manual refresh for dynamic and hybrid catalogs.
+4. Moves consumer surfaces onto descriptor-backed metadata in phases, with verification checkpoints between each phase.
+5. Adds a dedicated documentation phase so the resulting architecture is teachable and maintainable for future contributors.
 
 The plan includes the following execution details to support implementation and tracking:
 
 - the rollout is broken into smaller work packets that multiple agents could tackle in parallel
 - each work packet has a checklist so the plan can be used to track progress as well as describe intent
+- the discovery cache service is scoped as a standalone work packet (Phase 2A.5) with its own interface, storage strategy, and tests
 - the verification section is now a checklist-style test plan
 - a dedicated documentation phase now covers contributor docs, worked samples, and `/usage` integration guidance
 - all planned documentation is explicitly required to live under `/docs` in `.md` format
@@ -45,8 +47,9 @@ The intended end state is broader than simply replacing switch statements with d
 
 - one authoritative metadata system
 - clearer boundaries between metadata and transport
+- a per-route discovery cache with TTL, stale fallback, background refresh, and manual refresh
 - safer incremental migration
-- contributor documentation with realistic examples for vendors, gateways, models, anthropic proxies, and `/usage`
+- contributor documentation with realistic examples for vendors, gateways, models, anthropic proxies, discovery caching, and `/usage`
 
 The document is intentionally ordered as:
 
@@ -1267,6 +1270,74 @@ Dependencies:
 
 - Phase 1 complete
 
+#### Phase 2A.5: Discovery Cache Service
+
+Scope:
+
+Build the reusable per-route model discovery cache module before discovery metadata migration begins consuming it. This is the write-path counterpart to the cache behavior described in "Model Discovery Cache and Refresh."
+
+Deliverables:
+
+- `src/integrations/discoveryCache.ts` — core service
+- `src/integrations/discoveryCache.test.ts` — unit tests
+
+Interface:
+
+- `getCachedModels(routeId, ttlMs)` — returns entry or `null` if missing/stale
+- `setCachedModels(routeId, entry)` — overwrites entry, clears error state
+- `recordDiscoveryError(routeId, error)` — preserves stale data, appends error metadata
+- `isCacheStale(routeId, ttlMs)` — boolean check
+- `clearDiscoveryCache(routeId?)` — per-route or global clear
+- `parseDurationString(input)` — human-readable `30m`/`1h`/`1d` → ms, accepts raw numbers
+
+Storage strategy (reuse proven patterns from `src/utils/statsCache.ts`):
+
+- **File**: `join(getClaudeConfigHomeDir(), 'model-discovery-cache.json')`
+- **Atomic writes**: temp file + `rename` with `fsync`
+- **Locking**: in-memory promise queue (`withDiscoveryCacheLock`)
+- **Versioning**: `DISCOVERY_CACHE_VERSION` + `migrateDiscoveryCache`
+- **Corruption fallback**: empty cache, no crash
+- **Why not `envPaths('claude-cli').cache`**: that cache is scoped to `cwd`; model discovery must survive across project directories
+
+Stale fallback rules:
+
+1. Discovery succeeds → overwrite cache, clear error
+2. Discovery fails + stale cache exists → keep stale cache, append error
+3. Discovery fails + no cache → store error only; `getCachedModels` returns `null`
+4. Hybrid catalog static entries → always shown regardless of cache state
+5. Manual refresh (`/model refresh`, in-picker `r`) → bypasses TTL, still preserves stale data on failure
+
+Tracking checklist:
+
+- [ ] create `src/integrations/discoveryCache.ts`
+- [ ] create `src/integrations/discoveryCache.test.ts`
+- [ ] implement `parseDurationString` with `m`, `h`, `d` support and raw numbers
+- [ ] implement `getCachedModels`, `setCachedModels`, `isCacheStale`
+- [ ] implement `recordDiscoveryError` with stale-data preservation
+- [ ] implement `clearDiscoveryCache` (per-route and all-routes)
+- [ ] implement atomic writes (temp + rename)
+- [ ] implement in-memory locking for concurrent access
+- [ ] implement schema version + migration stub
+- [ ] implement corruption fallback (empty cache, no crash)
+- [ ] verify parse and TTL behavior in unit tests
+- [ ] verify atomic write does not corrupt existing cache on crash mid-write
+- [ ] verify concurrent writes are serialized
+- [ ] verify `recordDiscoveryError` preserves stale cache data
+
+Suggested owner:
+
+- Agent 1 (registry/discovery track)
+
+Dependencies:
+
+- Phase 1A (descriptor types exist, especially `ModelCatalogEntry`)
+- Phase 1B (route IDs are stable)
+- Can be developed in parallel with Phase 2A
+
+Merge checkpoint:
+
+- [ ] merge as standalone PR before Phase 2B begins
+
 #### Phase 2B: Discovery and Readiness Metadata Migration
 
 Scope:
@@ -1280,7 +1351,8 @@ Tracking checklist:
 - [ ] define which probe behaviors can be declared as metadata
 - [ ] keep actual probe execution in code, but drive probe selection from descriptors
 - [ ] add a model discovery service that can run declarative `catalog.discovery` configs
-- [ ] add per-route discovery cache storage with TTL and stale fallback behavior
+- [ ] consume `discoveryCache.ts` in the discovery service (depends on Phase 2A.5)
+- [ ] wire `setCachedModels` / `getCachedModels` into declarative `catalog.discovery` execution
 - [ ] implement deterministic hybrid merge behavior where curated descriptor entries override discovered metadata
 - [ ] implement built-in `discovery.kind: 'openai-compatible'` support for standard `/v1/models` discovery
 - [ ] ensure OpenAI-compatible discovery uses the route's base URL and descriptor/profile-resolved headers automatically
@@ -1295,6 +1367,7 @@ Suggested owner:
 Dependencies:
 
 - Phase 1 complete
+- Phase 2A.5 (discovery cache service must exist before wiring discovery into it)
 
 #### Phase 2C: Provider UI Metadata Migration
 
@@ -1310,10 +1383,13 @@ Tracking checklist:
 - [ ] drive auth/setup prompts from descriptor metadata
 - [ ] wire custom-header capability flags into the custom-provider flow
 - [ ] make `/model` read active route catalog entries instead of global model availability
-- [ ] show cached discovered models immediately for dynamic and hybrid routes
-- [ ] add `/model refresh` to force model discovery refresh for the active route
+- [ ] call `getCachedModels` before rendering `/model` for dynamic/hybrid routes so cached discovered models appear immediately
+- [ ] call `isCacheStale` to trigger background refresh when picker opens
+- [ ] add `/model refresh` command to force model discovery refresh for the active route
 - [ ] add an in-picker refresh action for model discovery, such as pressing `r`
+- [ ] call `clearDiscoveryCache(routeId)` from `/model refresh` and in-picker refresh handlers
 - [ ] show non-blocking refresh states: loading, success, failure with stale cache, and no changes found
+- [ ] surface `entry.error` in the picker UI when refresh failed but stale data exists
 - [ ] keep any UX-only branching that is truly presentational
 - [ ] verify the `/provider` experience remains understandable after metadata migration
 
@@ -1325,6 +1401,7 @@ Suggested owner split:
 Dependencies:
 
 - Phase 1A through 1E complete
+- Phase 2A.5 (discovery cache service must exist for `/model` picker to consume it)
 
 #### Phase 2D: Runtime Provider Detection Alignment
 
@@ -1380,10 +1457,12 @@ Dependencies:
 
 Phase 2 merge checkpoints:
 
-- [ ] merge validation and discovery metadata changes first
-- [ ] merge UI/command consumers second
-- [ ] merge runtime provider detection changes third
-- [ ] merge drift-audit cleanup last
+- [ ] merge validation metadata changes first (Phase 2A)
+- [ ] merge discovery cache service second (Phase 2A.5)
+- [ ] merge discovery and readiness metadata changes third (Phase 2B)
+- [ ] merge UI/command consumers fourth (Phase 2C)
+- [ ] merge runtime provider detection changes fifth (Phase 2D)
+- [ ] merge drift-audit cleanup last (Phase 2E)
 
 ### Phase 3: Cleanup
 
@@ -1755,11 +1834,12 @@ If multiple agents are working at once, the safest split is by write-scope:
 
 1. Registry core: `src/integrations/descriptors.ts`, `registry.ts`, `compatibility.ts`
 2. Descriptor inventory: files under `src/integrations/vendors/`, `gateways/`, `brands/`, `models/`
-3. Config compatibility: `src/utils/config.ts`, `src/utils/providerProfiles.ts`
-4. CLI/runtime surfaces: `src/utils/providerFlag.ts`, `src/utils/model/providers.ts`, `src/utils/providerDiscovery.ts`
-5. UI and command consumers: `src/components/ProviderManager.tsx`, `src/commands/provider/provider.tsx`, `src/commands/usage/`
-6. Test and audit work: `*.test.ts` plus migration verification
-7. Documentation work: `docs/architecture/`, `docs/integrations/`, and reference sample docs
+3. Discovery cache service: `src/integrations/discoveryCache.ts` and tests
+4. Config compatibility: `src/utils/config.ts`, `src/utils/providerProfiles.ts`
+5. CLI/runtime surfaces: `src/utils/providerFlag.ts`, `src/utils/model/providers.ts`, `src/utils/providerDiscovery.ts`
+6. UI and command consumers: `src/components/ProviderManager.tsx`, `src/commands/provider/provider.tsx`, `src/commands/usage/`
+7. Test and audit work: `*.test.ts` plus migration verification
+8. Documentation work: `docs/architecture/`, `docs/integrations/`, and reference sample docs
 
 Guardrails for parallel work:
 

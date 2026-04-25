@@ -27,9 +27,11 @@ const RESTORED_KEYS = [
   'OPENAI_API_BASE',
   'OPENAI_MODEL',
   'OPENAI_API_KEY',
+  'ANTHROPIC_BEDROCK_BASE_URL',
   'ANTHROPIC_BASE_URL',
   'ANTHROPIC_MODEL',
   'ANTHROPIC_API_KEY',
+  'ANTHROPIC_VERTEX_BASE_URL',
   'GEMINI_BASE_URL',
   'GEMINI_MODEL',
   'GEMINI_API_KEY',
@@ -94,6 +96,9 @@ async function importFreshProviderProfileModules() {
     },
   }))
   const nonce = `${Date.now()}-${Math.random()}`
+  const registry = await import('../integrations/registry.js')
+  registry._clearRegistryForTesting()
+  await import(`../integrations/index.js?ts=${nonce}`)
   const providers = await import(`./model/providers.js?ts=${nonce}`)
   const providerProfiles = await import(`./providerProfiles.js?ts=${nonce}`)
 
@@ -180,6 +185,54 @@ describe('applyProviderProfileToProcessEnv', () => {
     expect(process.env.CLAUDE_CODE_USE_OPENAI).toBeUndefined()
     expect(process.env.GEMINI_MODEL).toBe('gemini-3-flash-preview')
     expect(getFreshAPIProvider()).toBe('gemini')
+  })
+
+  test('bedrock profile sets CLAUDE_CODE_USE_BEDROCK and preserves anthropic model routing', async () => {
+    const { applyProviderProfileToProcessEnv } =
+      await importFreshProviderProfileModules()
+    process.env.CLAUDE_CODE_USE_OPENAI = '1'
+
+    applyProviderProfileToProcessEnv(
+      buildProfile({
+        provider: 'bedrock',
+        baseUrl: 'https://bedrock-proxy.example',
+        model: 'claude-sonnet-4-6',
+      }),
+    )
+    const { getAPIProvider: getFreshAPIProvider } =
+      await importFreshProvidersModule()
+
+    expect(process.env.CLAUDE_CODE_USE_BEDROCK).toBe('1')
+    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBeUndefined()
+    expect(process.env.ANTHROPIC_MODEL).toBe('claude-sonnet-4-6')
+    expect(process.env.ANTHROPIC_BEDROCK_BASE_URL).toBe(
+      'https://bedrock-proxy.example',
+    )
+    expect(getFreshAPIProvider()).toBe('bedrock')
+  })
+
+  test('github profile sets CLAUDE_CODE_USE_GITHUB instead of generic openai mode', async () => {
+    const { applyProviderProfileToProcessEnv } =
+      await importFreshProviderProfileModules()
+    process.env.CLAUDE_CODE_USE_OPENAI = '1'
+
+    applyProviderProfileToProcessEnv(
+      buildProfile({
+        provider: 'github',
+        baseUrl: 'https://models.github.ai/inference',
+        model: 'github:copilot',
+      }),
+    )
+    const { getAPIProvider: getFreshAPIProvider } =
+      await importFreshProvidersModule()
+
+    expect(process.env.CLAUDE_CODE_USE_GITHUB).toBe('1')
+    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBeUndefined()
+    expect(process.env.OPENAI_BASE_URL).toBe(
+      'https://models.github.ai/inference',
+    )
+    expect(process.env.OPENAI_MODEL).toBe('github:copilot')
+    expect(getFreshAPIProvider()).toBe('github')
   })
 
   test('anthropic profile clears competing gemini/github flags', async () => {
@@ -726,6 +779,82 @@ describe('setActiveProviderProfile', () => {
         OPENAI_BASE_URL: 'https://api.deepseek.com/v1',
         OPENAI_MODEL: 'deepseek-v4-flash',
         OPENAI_API_KEY: 'sk-deepseek-live',
+      })
+    } finally {
+      process.chdir(originalCwd)
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  test('persists descriptor-backed direct vendors using a legacy-compatible openai startup profile', async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'openclaude-provider-'))
+    process.chdir(tempDir)
+
+    try {
+      const { setActiveProviderProfile } =
+        await importFreshProviderProfileModules()
+      const deepSeekProfile = buildProfile({
+        id: 'deepseek_vendor_prof',
+        name: 'DeepSeek Vendor',
+        provider: 'deepseek',
+        baseUrl: 'https://api.deepseek.com/v1',
+        model: 'deepseek-chat',
+        apiKey: 'sk-deepseek-live',
+      })
+
+      saveMockGlobalConfig(current => ({
+        ...current,
+        providerProfiles: [deepSeekProfile],
+      }))
+
+      const result = setActiveProviderProfile('deepseek_vendor_prof')
+      const persisted = JSON.parse(
+        readFileSync(join(tempDir, '.openclaude-profile.json'), 'utf8'),
+      )
+
+      expect(result?.id).toBe('deepseek_vendor_prof')
+      expect(persisted.profile).toBe('openai')
+      expect(persisted.env).toEqual({
+        OPENAI_BASE_URL: 'https://api.deepseek.com/v1',
+        OPENAI_MODEL: 'deepseek-chat',
+        OPENAI_API_KEY: 'sk-deepseek-live',
+      })
+    } finally {
+      process.chdir(originalCwd)
+      rmSync(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  test('persists bedrock profiles using a dedicated startup profile kind', async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'openclaude-provider-'))
+    process.chdir(tempDir)
+
+    try {
+      const { setActiveProviderProfile } =
+        await importFreshProviderProfileModules()
+      const bedrockProfile = buildProfile({
+        id: 'bedrock_prof',
+        name: 'Bedrock',
+        provider: 'bedrock',
+        baseUrl: 'https://bedrock-proxy.example',
+        model: 'claude-sonnet-4-6',
+      })
+
+      saveMockGlobalConfig(current => ({
+        ...current,
+        providerProfiles: [bedrockProfile],
+      }))
+
+      const result = setActiveProviderProfile('bedrock_prof')
+      const persisted = JSON.parse(
+        readFileSync(join(tempDir, '.openclaude-profile.json'), 'utf8'),
+      )
+
+      expect(result?.id).toBe('bedrock_prof')
+      expect(persisted.profile).toBe('bedrock')
+      expect(persisted.env).toEqual({
+        ANTHROPIC_MODEL: 'claude-sonnet-4-6',
+        ANTHROPIC_BEDROCK_BASE_URL: 'https://bedrock-proxy.example',
       })
     } finally {
       process.chdir(originalCwd)

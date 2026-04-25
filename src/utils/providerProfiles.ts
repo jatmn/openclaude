@@ -10,13 +10,21 @@ import { getPrimaryModel, parseModelList } from './providerModels.js'
 import {
   createProfileFile,
   saveProfileFile,
+  buildBedrockProfileEnv,
   buildGeminiProfileEnv,
+  buildGithubProfileEnv,
+  buildMiniMaxProfileEnv,
   buildMistralProfileEnv,
+  buildNvidiaNimProfileEnv,
   buildOpenAIProfileEnv,
+  buildVertexProfileEnv,
   type ProfileEnv,
   type ProviderProfile as ProviderProfileStartup,
 } from './providerProfile.js'
-import { resolveProfileRoute } from '../integrations/index.js'
+import {
+  resolveProfileRoute,
+  type ResolvedProfileRoute,
+} from '../integrations/index.js'
 
 export type ProviderPreset =
   | 'anthropic'
@@ -57,6 +65,43 @@ const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434/v1'
 const DEFAULT_OLLAMA_MODEL = 'llama3.1:8b'
 const PROFILE_ENV_APPLIED_FLAG = 'CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED'
 const PROFILE_ENV_APPLIED_ID = 'CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID'
+
+type ProfileRuntimeMode =
+  | 'anthropic'
+  | 'gemini'
+  | 'mistral'
+  | 'github'
+  | 'bedrock'
+  | 'vertex'
+  | 'openai'
+
+function resolveProfileRuntime(provider: string): {
+  route: ResolvedProfileRoute
+  mode: ProfileRuntimeMode
+} {
+  const route = resolveProfileRoute(provider)
+
+  if (route.gatewayId === 'github') {
+    return { route, mode: 'github' }
+  }
+  if (route.gatewayId === 'bedrock') {
+    return { route, mode: 'bedrock' }
+  }
+  if (route.gatewayId === 'vertex') {
+    return { route, mode: 'vertex' }
+  }
+  if (route.vendorId === 'anthropic') {
+    return { route, mode: 'anthropic' }
+  }
+  if (route.vendorId === 'gemini') {
+    return { route, mode: 'gemini' }
+  }
+  if (route.vendorId === 'mistral' || route.gatewayId === 'mistral') {
+    return { route, mode: 'mistral' }
+  }
+
+  return { route, mode: 'openai' }
+}
 
 function trimValue(value: string | undefined): string {
   return value?.trim() ?? ''
@@ -404,16 +449,19 @@ function hasConflictingProviderFlagsForProfile(
   processEnv: NodeJS.ProcessEnv,
   profile: ProviderProfile,
 ): boolean {
-  if (profile.provider === 'anthropic') {
+  const { mode } = resolveProfileRuntime(profile.provider)
+
+  if (mode === 'anthropic') {
     return hasProviderSelectionFlags(processEnv)
   }
 
   return (
-    processEnv.CLAUDE_CODE_USE_GEMINI !== undefined ||
-    processEnv.CLAUDE_CODE_USE_MISTRAL !== undefined ||
-    processEnv.CLAUDE_CODE_USE_GITHUB !== undefined ||
-    processEnv.CLAUDE_CODE_USE_BEDROCK !== undefined ||
-    processEnv.CLAUDE_CODE_USE_VERTEX !== undefined ||
+    (mode !== 'openai' && processEnv.CLAUDE_CODE_USE_OPENAI !== undefined) ||
+    (mode !== 'gemini' && processEnv.CLAUDE_CODE_USE_GEMINI !== undefined) ||
+    (mode !== 'mistral' && processEnv.CLAUDE_CODE_USE_MISTRAL !== undefined) ||
+    (mode !== 'github' && processEnv.CLAUDE_CODE_USE_GITHUB !== undefined) ||
+    (mode !== 'bedrock' && processEnv.CLAUDE_CODE_USE_BEDROCK !== undefined) ||
+    (mode !== 'vertex' && processEnv.CLAUDE_CODE_USE_VERTEX !== undefined) ||
     processEnv.CLAUDE_CODE_USE_FOUNDRY !== undefined
   )
 }
@@ -433,6 +481,7 @@ function isProcessEnvAlignedWithProfile(
   },
 ): boolean {
   const includeApiKey = options?.includeApiKey ?? true
+  const { mode } = resolveProfileRuntime(profile.provider)
 
   if (processEnv[PROFILE_ENV_APPLIED_FLAG] !== '1') {
     return false
@@ -442,7 +491,7 @@ function isProcessEnvAlignedWithProfile(
     return false
   }
 
-  if (profile.provider === 'anthropic') {
+  if (mode === 'anthropic') {
     return (
       !hasProviderSelectionFlags(processEnv) &&
       sameOptionalEnvValue(processEnv.ANTHROPIC_BASE_URL, profile.baseUrl) &&
@@ -452,7 +501,7 @@ function isProcessEnvAlignedWithProfile(
     )
   }
 
-  if (profile.provider === 'mistral') {
+  if (mode === 'mistral') {
     return (
       processEnv.CLAUDE_CODE_USE_MISTRAL !== undefined &&
       processEnv.CLAUDE_CODE_USE_GEMINI === undefined &&
@@ -468,7 +517,7 @@ function isProcessEnvAlignedWithProfile(
     )
   }
 
-  if (profile.provider === 'gemini') {
+  if (mode === 'gemini') {
     return (
       processEnv.CLAUDE_CODE_USE_GEMINI !== undefined &&
       processEnv.CLAUDE_CODE_USE_MISTRAL === undefined &&
@@ -481,6 +530,48 @@ function isProcessEnvAlignedWithProfile(
       sameOptionalEnvValue(processEnv.GEMINI_MODEL, getPrimaryModel(profile.model)) &&
       (!includeApiKey ||
         sameOptionalEnvValue(processEnv.GEMINI_API_KEY, profile.apiKey))
+    )
+  }
+
+  if (mode === 'github') {
+    return (
+      processEnv.CLAUDE_CODE_USE_GITHUB !== undefined &&
+      processEnv.CLAUDE_CODE_USE_OPENAI === undefined &&
+      processEnv.CLAUDE_CODE_USE_GEMINI === undefined &&
+      processEnv.CLAUDE_CODE_USE_MISTRAL === undefined &&
+      processEnv.CLAUDE_CODE_USE_BEDROCK === undefined &&
+      processEnv.CLAUDE_CODE_USE_VERTEX === undefined &&
+      processEnv.CLAUDE_CODE_USE_FOUNDRY === undefined &&
+      sameOptionalEnvValue(processEnv.OPENAI_BASE_URL, profile.baseUrl) &&
+      sameOptionalEnvValue(processEnv.OPENAI_MODEL, getPrimaryModel(profile.model))
+    )
+  }
+
+  if (mode === 'bedrock') {
+    return (
+      processEnv.CLAUDE_CODE_USE_BEDROCK !== undefined &&
+      processEnv.CLAUDE_CODE_USE_OPENAI === undefined &&
+      processEnv.CLAUDE_CODE_USE_GEMINI === undefined &&
+      processEnv.CLAUDE_CODE_USE_MISTRAL === undefined &&
+      processEnv.CLAUDE_CODE_USE_GITHUB === undefined &&
+      processEnv.CLAUDE_CODE_USE_VERTEX === undefined &&
+      processEnv.CLAUDE_CODE_USE_FOUNDRY === undefined &&
+      sameOptionalEnvValue(processEnv.ANTHROPIC_MODEL, getPrimaryModel(profile.model)) &&
+      sameOptionalEnvValue(processEnv.ANTHROPIC_BEDROCK_BASE_URL, profile.baseUrl)
+    )
+  }
+
+  if (mode === 'vertex') {
+    return (
+      processEnv.CLAUDE_CODE_USE_VERTEX !== undefined &&
+      processEnv.CLAUDE_CODE_USE_OPENAI === undefined &&
+      processEnv.CLAUDE_CODE_USE_GEMINI === undefined &&
+      processEnv.CLAUDE_CODE_USE_MISTRAL === undefined &&
+      processEnv.CLAUDE_CODE_USE_GITHUB === undefined &&
+      processEnv.CLAUDE_CODE_USE_BEDROCK === undefined &&
+      processEnv.CLAUDE_CODE_USE_FOUNDRY === undefined &&
+      sameOptionalEnvValue(processEnv.ANTHROPIC_MODEL, getPrimaryModel(profile.model)) &&
+      sameOptionalEnvValue(processEnv.ANTHROPIC_VERTEX_BASE_URL, profile.baseUrl)
     )
   }
 
@@ -534,6 +625,8 @@ export function clearProviderProfileEnvFromProcessEnv(
   delete processEnv.ANTHROPIC_BASE_URL
   delete processEnv.ANTHROPIC_MODEL
   delete processEnv.ANTHROPIC_API_KEY
+  delete processEnv.ANTHROPIC_BEDROCK_BASE_URL
+  delete processEnv.ANTHROPIC_VERTEX_BASE_URL
   delete processEnv[PROFILE_ENV_APPLIED_FLAG]
   delete processEnv[PROFILE_ENV_APPLIED_ID]
 
@@ -562,7 +655,7 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
   process.env[PROFILE_ENV_APPLIED_FLAG] = '1'
   process.env[PROFILE_ENV_APPLIED_ID] = profile.id
 
-  const route = resolveProfileRoute(profile.provider)
+  const { route, mode } = resolveProfileRuntime(profile.provider)
 
   process.env.ANTHROPIC_MODEL = getPrimaryModel(profile.model)
 
@@ -575,7 +668,7 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
     )
   }
 
-  if (route.vendorId === 'anthropic') {
+  if (mode === 'anthropic') {
     process.env.ANTHROPIC_BASE_URL = profile.baseUrl
 
     if (profile.apiKey) {
@@ -591,7 +684,7 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
     return
   }
 
-  if (route.vendorId === 'mistral' || route.gatewayId === 'mistral') {
+  if (mode === 'mistral') {
     process.env.CLAUDE_CODE_USE_MISTRAL = '1'
     process.env.MISTRAL_BASE_URL = profile.baseUrl
     process.env.MISTRAL_MODEL = getPrimaryModel(profile.model)
@@ -608,7 +701,7 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
     return
   }
 
-  if (route.vendorId === 'gemini') {
+  if (mode === 'gemini') {
     process.env.CLAUDE_CODE_USE_GEMINI = '1'
     process.env.GEMINI_BASE_URL = profile.baseUrl
     process.env.GEMINI_MODEL = getPrimaryModel(profile.model)
@@ -622,6 +715,26 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
     delete process.env.OPENAI_BASE_URL
     delete process.env.OPENAI_API_KEY
     delete process.env.OPENAI_MODEL
+    return
+  }
+
+  if (mode === 'github') {
+    process.env.CLAUDE_CODE_USE_GITHUB = '1'
+    process.env.OPENAI_BASE_URL = profile.baseUrl
+    process.env.OPENAI_MODEL = getPrimaryModel(profile.model)
+    delete process.env.OPENAI_API_KEY
+    return
+  }
+
+  if (mode === 'bedrock') {
+    process.env.CLAUDE_CODE_USE_BEDROCK = '1'
+    process.env.ANTHROPIC_BEDROCK_BASE_URL = profile.baseUrl
+    return
+  }
+
+  if (mode === 'vertex') {
+    process.env.CLAUDE_CODE_USE_VERTEX = '1'
+    process.env.ANTHROPIC_VERTEX_BASE_URL = profile.baseUrl
     return
   }
 
@@ -908,6 +1021,98 @@ function buildOpenAICompatibleStartupEnv(
   return env
 }
 
+function buildStartupProfileFromActiveProfile(
+  activeProfile: ProviderProfile,
+): {
+  profile: ProviderProfileStartup
+  env: ProfileEnv
+} | null {
+  const { route, mode } = resolveProfileRuntime(activeProfile.provider)
+
+  switch (mode) {
+    case 'anthropic':
+      return {
+        profile: 'openai',
+        env: {
+          OPENAI_BASE_URL: activeProfile.baseUrl,
+          OPENAI_MODEL: getPrimaryModel(activeProfile.model),
+          OPENAI_API_KEY: activeProfile.apiKey,
+        },
+      }
+    case 'gemini': {
+      const env =
+        buildGeminiProfileEnv({
+          model: getPrimaryModel(activeProfile.model),
+          baseUrl: activeProfile.baseUrl,
+          apiKey: activeProfile.apiKey,
+          authMode: 'api-key',
+          processEnv: process.env,
+        }) ?? null
+      return env ? { profile: 'gemini', env } : null
+    }
+    case 'mistral': {
+      const env =
+        buildMistralProfileEnv({
+          model: getPrimaryModel(activeProfile.model),
+          baseUrl: activeProfile.baseUrl,
+          apiKey: activeProfile.apiKey,
+          processEnv: process.env,
+        }) ?? null
+      return env ? { profile: 'mistral', env } : null
+    }
+    case 'github':
+      return {
+        profile: 'github',
+        env: buildGithubProfileEnv({
+          model: getPrimaryModel(activeProfile.model),
+          baseUrl: activeProfile.baseUrl,
+        }),
+      }
+    case 'bedrock':
+      return {
+        profile: 'bedrock',
+        env: buildBedrockProfileEnv({
+          model: getPrimaryModel(activeProfile.model),
+          baseUrl: activeProfile.baseUrl,
+        }),
+      }
+    case 'vertex':
+      return {
+        profile: 'vertex',
+        env: buildVertexProfileEnv({
+          model: getPrimaryModel(activeProfile.model),
+          baseUrl: activeProfile.baseUrl,
+        }),
+      }
+    case 'openai': {
+      if (route.gatewayId === 'nvidia-nim') {
+        const env =
+          buildNvidiaNimProfileEnv({
+            model: getPrimaryModel(activeProfile.model),
+            baseUrl: activeProfile.baseUrl,
+            apiKey: activeProfile.apiKey,
+            processEnv: process.env,
+          }) ?? null
+        return env ? { profile: 'nvidia-nim', env } : null
+      }
+
+      if (route.vendorId === 'minimax') {
+        const env =
+          buildMiniMaxProfileEnv({
+            model: getPrimaryModel(activeProfile.model),
+            baseUrl: activeProfile.baseUrl,
+            apiKey: activeProfile.apiKey,
+            processEnv: process.env,
+          }) ?? null
+        return env ? { profile: 'minimax', env } : null
+      }
+
+      const env = buildOpenAICompatibleStartupEnv(activeProfile)
+      return env ? { profile: 'openai', env } : null
+    }
+  }
+}
+
 export function setActiveProviderProfile(
   profileId: string,
 ): ProviderProfile | null {
@@ -939,63 +1144,9 @@ export function setActiveProviderProfile(
 
   // Keep startup persisted provider profile in sync so initial startup
   // uses the selected provider/model.
-  const persistedProfile = (() => {
-    if (activeProfile.provider === 'anthropic') return 'openai' as const
-    return activeProfile.provider
-  })()
+  const startupProfile = buildStartupProfileFromActiveProfile(activeProfile)
 
-  const profileEnv = (() => {
-    switch (activeProfile.provider) {
-      case 'gemini':
-        return (
-          buildGeminiProfileEnv({
-            model: getPrimaryModel(activeProfile.model),
-            baseUrl: activeProfile.baseUrl,
-            apiKey: activeProfile.apiKey,
-            authMode: 'api-key',
-            processEnv: process.env,
-          }) ?? null
-        )
-      case 'mistral':
-        return (
-          buildMistralProfileEnv({
-            model: getPrimaryModel(activeProfile.model),
-            baseUrl: activeProfile.baseUrl,
-            apiKey: activeProfile.apiKey,
-            processEnv: process.env,
-          }) ?? null
-        )
-      default:
-        return activeProfile.provider === 'anthropic'
-          ? (
-              buildOpenAIProfileEnv({
-                goal: 'balanced',
-                model: getPrimaryModel(activeProfile.model),
-                baseUrl: activeProfile.baseUrl,
-                apiKey: activeProfile.apiKey,
-                processEnv: process.env,
-              }) ?? null
-            )
-          : buildOpenAICompatibleStartupEnv(activeProfile)
-    }
-  })()
-
-  if (profileEnv) {
-    const startupProfile =
-      activeProfile.provider === 'anthropic'
-        ? ({
-            profile: 'openai' as ProviderProfileStartup,
-            env: {
-              OPENAI_BASE_URL: activeProfile.baseUrl,
-              OPENAI_MODEL: getPrimaryModel(activeProfile.model),
-              OPENAI_API_KEY: activeProfile.apiKey,
-            },
-          } as const)
-        : ({
-            profile: activeProfile.provider as ProviderProfileStartup,
-            env: profileEnv,
-          } as const)
-
+  if (startupProfile) {
     const file = createProfileFile(startupProfile.profile, startupProfile.env)
     saveProfileFile(file)
   }

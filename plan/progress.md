@@ -3,7 +3,7 @@
 **Master Plan**: [`plan/cheeky-cooking-moon.md`](./cheeky-cooking-moon.md)
 **Phase**: Phase 1 — Foundation and Parity
 **Goal**: Establish the descriptor system without regressing current behavior. Get all metadata into one place before deeper runtime migration starts.
-**Last Updated**: 2026-04-25 15:01
+**Last Updated**: 2026-04-25 15:22
 
 ---
 
@@ -107,6 +107,8 @@
 - [x] Stop normalizing unknown stored providers back to `'openai'` in `src/utils/providerProfiles.ts`
 - [x] Add `resolveProfileRoute(provider)` helper returning `{ vendorId, gatewayId?, routeId }`
 - [x] Update `applyProviderProfileToProcessEnv()` to use route-resolution helper with explicit fallback
+- [x] Preserve Bedrock/Vertex/GitHub runtime exceptions during descriptor-backed profile activation
+- [x] Serialize descriptor-backed startup fallback using legacy-compatible startup kinds so saved profiles still reload
 - [x] All `providerProfiles.test.ts` pass (38/38)
 
 ---

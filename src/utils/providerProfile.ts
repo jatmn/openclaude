@@ -23,7 +23,6 @@ import {
   sanitizeApiKey,
   sanitizeProviderConfigValue,
 } from './providerSecrets.js'
-import { getPrimaryModel } from './providerModels.js'
 
 export {
   maskSecretForDisplay,
@@ -32,8 +31,6 @@ export {
   sanitizeProviderConfigValue,
 } from './providerSecrets.js'
 import { isEnvTruthy } from './envUtils.ts'
-
-import { PROVIDERS } from './configConstants.js'
 
 export const PROFILE_FILE_NAME = '.openclaude-profile.json'
 export const DEFAULT_GEMINI_BASE_URL =
@@ -50,6 +47,9 @@ const PROFILE_ENV_KEYS = [
   'CLAUDE_CODE_USE_BEDROCK',
   'CLAUDE_CODE_USE_VERTEX',
   'CLAUDE_CODE_USE_FOUNDRY',
+  'ANTHROPIC_MODEL',
+  'ANTHROPIC_BEDROCK_BASE_URL',
+  'ANTHROPIC_VERTEX_BASE_URL',
   'OPENAI_BASE_URL',
   'OPENAI_MODEL',
   'OPENAI_API_KEY',
@@ -88,9 +88,23 @@ const SECRET_ENV_KEYS = [
   'BNKR_API_KEY',
 ] as const
 
-export type ProviderProfile = 'openai' | 'ollama' | 'codex' | 'gemini' | 'atomic-chat' | 'nvidia-nim' | 'minimax' | 'mistral'
+export type ProviderProfile =
+  | 'openai'
+  | 'ollama'
+  | 'codex'
+  | 'gemini'
+  | 'atomic-chat'
+  | 'nvidia-nim'
+  | 'minimax'
+  | 'mistral'
+  | 'github'
+  | 'bedrock'
+  | 'vertex'
 
 export type ProfileEnv = {
+  ANTHROPIC_MODEL?: string
+  ANTHROPIC_BEDROCK_BASE_URL?: string
+  ANTHROPIC_VERTEX_BASE_URL?: string
   OPENAI_BASE_URL?: string
   OPENAI_MODEL?: string
   OPENAI_API_KEY?: string
@@ -170,8 +184,30 @@ export function isProviderProfile(value: unknown): value is ProviderProfile {
     value === 'atomic-chat' ||
     value === 'nvidia-nim' ||
     value === 'minimax' ||
-    value === 'mistral'
+    value === 'mistral' ||
+    value === 'github' ||
+    value === 'bedrock' ||
+    value === 'vertex'
   )
+}
+
+export function buildGithubProfileEnv(options: {
+  model?: string | null
+  baseUrl?: string | null
+}): ProfileEnv {
+  const env: ProfileEnv = {
+    OPENAI_MODEL:
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(options.model),
+      ) || 'github:copilot',
+  }
+
+  const baseUrl = sanitizeProviderConfigValue(options.baseUrl)
+  if (baseUrl) {
+    env.OPENAI_BASE_URL = baseUrl
+  }
+
+  return env
 }
 
 export function buildOllamaProfileEnv(
@@ -198,6 +234,44 @@ export function buildAtomicChatProfileEnv(
     OPENAI_BASE_URL: options.getAtomicChatChatBaseUrl(options.baseUrl ?? undefined),
     OPENAI_MODEL: model,
   }
+}
+
+export function buildBedrockProfileEnv(options: {
+  model?: string | null
+  baseUrl?: string | null
+}): ProfileEnv {
+  const env: ProfileEnv = {
+    ANTHROPIC_MODEL:
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(options.model),
+      ) || 'claude-sonnet-4-6',
+  }
+
+  const baseUrl = sanitizeProviderConfigValue(options.baseUrl)
+  if (baseUrl) {
+    env.ANTHROPIC_BEDROCK_BASE_URL = baseUrl
+  }
+
+  return env
+}
+
+export function buildVertexProfileEnv(options: {
+  model?: string | null
+  baseUrl?: string | null
+}): ProfileEnv {
+  const env: ProfileEnv = {
+    ANTHROPIC_MODEL:
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(options.model),
+      ) || 'claude-sonnet-4-6',
+  }
+
+  const baseUrl = sanitizeProviderConfigValue(options.baseUrl)
+  if (baseUrl) {
+    env.ANTHROPIC_VERTEX_BASE_URL = baseUrl
+  }
+
+  return env
 }
 
 export function buildNvidiaNimProfileEnv(options: {
@@ -664,17 +738,166 @@ export async function buildLaunchEnv(options: {
   const persistedGeminiAuthMode = persistedEnv.GEMINI_AUTH_MODE
 
   if (hasExplicitProviderSelection(processEnv)) {
-    for (let provider of PROVIDERS) {
-      if (provider === "anthropic") {
-        continue;
-      }
+    const explicitProfileOverrides: Array<[string, ProviderProfile]> = [
+      ['CLAUDE_CODE_USE_GITHUB', 'github'],
+      ['CLAUDE_CODE_USE_BEDROCK', 'bedrock'],
+      ['CLAUDE_CODE_USE_VERTEX', 'vertex'],
+      ['CLAUDE_CODE_USE_MISTRAL', 'mistral'],
+      ['CLAUDE_CODE_USE_GEMINI', 'gemini'],
+      ['CLAUDE_CODE_USE_OPENAI', 'openai'],
+    ]
 
-      const env_key_name = `CLAUDE_CODE_USE_${provider.toUpperCase()}`
-
-      if (env_key_name in processEnv && isEnvTruthy(processEnv[env_key_name])) {
-        options.profile = provider;
+    for (const [envKey, provider] of explicitProfileOverrides) {
+      if (isEnvTruthy(processEnv[envKey])) {
+        options.profile = provider
+        break
       }
     }
+  }
+
+  if (options.profile === 'github') {
+    const env: NodeJS.ProcessEnv = {
+      ...processEnv,
+      CLAUDE_CODE_USE_GITHUB: '1',
+    }
+
+    delete env.CLAUDE_CODE_USE_OPENAI
+    delete env.CLAUDE_CODE_USE_GEMINI
+    delete env.CLAUDE_CODE_USE_MISTRAL
+    delete env.CLAUDE_CODE_USE_BEDROCK
+    delete env.CLAUDE_CODE_USE_VERTEX
+    delete env.CLAUDE_CODE_USE_FOUNDRY
+    delete env.CODEX_CREDENTIAL_SOURCE
+
+    env.OPENAI_MODEL = shellOpenAIModel || persistedOpenAIModel || 'github:copilot'
+
+    if (shellOpenAIBaseUrl || persistedOpenAIBaseUrl) {
+      env.OPENAI_BASE_URL = shellOpenAIBaseUrl || persistedOpenAIBaseUrl
+    } else {
+      delete env.OPENAI_BASE_URL
+    }
+
+    delete env.OPENAI_API_KEY
+    delete env.CODEX_API_KEY
+    delete env.CHATGPT_ACCOUNT_ID
+    delete env.CODEX_ACCOUNT_ID
+    delete env.GEMINI_API_KEY
+    delete env.GEMINI_AUTH_MODE
+    delete env.GEMINI_ACCESS_TOKEN
+    delete env.GEMINI_MODEL
+    delete env.GEMINI_BASE_URL
+    delete env.GOOGLE_API_KEY
+    delete env.MISTRAL_API_KEY
+    delete env.MISTRAL_MODEL
+    delete env.MISTRAL_BASE_URL
+
+    return env
+  }
+
+  if (options.profile === 'bedrock') {
+    const env: NodeJS.ProcessEnv = {
+      ...processEnv,
+      CLAUDE_CODE_USE_BEDROCK: '1',
+    }
+
+    delete env.CLAUDE_CODE_USE_OPENAI
+    delete env.CLAUDE_CODE_USE_GITHUB
+    delete env.CLAUDE_CODE_USE_GEMINI
+    delete env.CLAUDE_CODE_USE_MISTRAL
+    delete env.CLAUDE_CODE_USE_VERTEX
+    delete env.CLAUDE_CODE_USE_FOUNDRY
+    delete env.CODEX_CREDENTIAL_SOURCE
+
+    env.ANTHROPIC_MODEL =
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(processEnv.ANTHROPIC_MODEL),
+      ) ||
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(persistedEnv.ANTHROPIC_MODEL),
+      ) ||
+      'claude-sonnet-4-6'
+
+    const bedrockBaseUrl =
+      sanitizeProviderConfigValue(processEnv.ANTHROPIC_BEDROCK_BASE_URL) ||
+      sanitizeProviderConfigValue(persistedEnv.ANTHROPIC_BEDROCK_BASE_URL)
+    if (bedrockBaseUrl) {
+      env.ANTHROPIC_BEDROCK_BASE_URL = bedrockBaseUrl
+    } else {
+      delete env.ANTHROPIC_BEDROCK_BASE_URL
+    }
+
+    delete env.ANTHROPIC_BASE_URL
+    delete env.ANTHROPIC_API_KEY
+    delete env.OPENAI_BASE_URL
+    delete env.OPENAI_MODEL
+    delete env.OPENAI_API_KEY
+    delete env.CODEX_API_KEY
+    delete env.CHATGPT_ACCOUNT_ID
+    delete env.CODEX_ACCOUNT_ID
+    delete env.GEMINI_API_KEY
+    delete env.GEMINI_AUTH_MODE
+    delete env.GEMINI_ACCESS_TOKEN
+    delete env.GEMINI_MODEL
+    delete env.GEMINI_BASE_URL
+    delete env.GOOGLE_API_KEY
+    delete env.MISTRAL_API_KEY
+    delete env.MISTRAL_MODEL
+    delete env.MISTRAL_BASE_URL
+
+    return env
+  }
+
+  if (options.profile === 'vertex') {
+    const env: NodeJS.ProcessEnv = {
+      ...processEnv,
+      CLAUDE_CODE_USE_VERTEX: '1',
+    }
+
+    delete env.CLAUDE_CODE_USE_OPENAI
+    delete env.CLAUDE_CODE_USE_GITHUB
+    delete env.CLAUDE_CODE_USE_GEMINI
+    delete env.CLAUDE_CODE_USE_MISTRAL
+    delete env.CLAUDE_CODE_USE_BEDROCK
+    delete env.CLAUDE_CODE_USE_FOUNDRY
+    delete env.CODEX_CREDENTIAL_SOURCE
+
+    env.ANTHROPIC_MODEL =
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(processEnv.ANTHROPIC_MODEL),
+      ) ||
+      normalizeProfileModel(
+        sanitizeProviderConfigValue(persistedEnv.ANTHROPIC_MODEL),
+      ) ||
+      'claude-sonnet-4-6'
+
+    const vertexBaseUrl =
+      sanitizeProviderConfigValue(processEnv.ANTHROPIC_VERTEX_BASE_URL) ||
+      sanitizeProviderConfigValue(persistedEnv.ANTHROPIC_VERTEX_BASE_URL)
+    if (vertexBaseUrl) {
+      env.ANTHROPIC_VERTEX_BASE_URL = vertexBaseUrl
+    } else {
+      delete env.ANTHROPIC_VERTEX_BASE_URL
+    }
+
+    delete env.ANTHROPIC_BASE_URL
+    delete env.ANTHROPIC_API_KEY
+    delete env.OPENAI_BASE_URL
+    delete env.OPENAI_MODEL
+    delete env.OPENAI_API_KEY
+    delete env.CODEX_API_KEY
+    delete env.CHATGPT_ACCOUNT_ID
+    delete env.CODEX_ACCOUNT_ID
+    delete env.GEMINI_API_KEY
+    delete env.GEMINI_AUTH_MODE
+    delete env.GEMINI_ACCESS_TOKEN
+    delete env.GEMINI_MODEL
+    delete env.GEMINI_BASE_URL
+    delete env.GOOGLE_API_KEY
+    delete env.MISTRAL_API_KEY
+    delete env.MISTRAL_MODEL
+    delete env.MISTRAL_BASE_URL
+
+    return env
   }
 
   if (options.profile === 'gemini') {
@@ -998,6 +1221,13 @@ export async function applySavedProfileToCurrentSession(options: {
     options.profileFile.profile === 'codex' &&
     options.profileFile.env.CODEX_CREDENTIAL_SOURCE === 'oauth'
 
+  delete baseEnv.CLAUDE_CODE_USE_OPENAI
+  delete baseEnv.CLAUDE_CODE_USE_GITHUB
+  delete baseEnv.CLAUDE_CODE_USE_GEMINI
+  delete baseEnv.CLAUDE_CODE_USE_MISTRAL
+  delete baseEnv.CLAUDE_CODE_USE_BEDROCK
+  delete baseEnv.CLAUDE_CODE_USE_VERTEX
+  delete baseEnv.CLAUDE_CODE_USE_FOUNDRY
   delete baseEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED
   delete baseEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID
   if (isCodexOAuthProfile) {

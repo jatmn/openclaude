@@ -9,6 +9,10 @@
 //   this file.
 
 import {
+  getBrand,
+  getGateway,
+  getModel,
+  getVendor,
   registerBrand,
   registerGateway,
   registerModel,
@@ -27,13 +31,13 @@ import deepseek from './vendors/deepseek.js'
 import minimax from './vendors/minimax.js'
 import bankr from './vendors/bankr.js'
 
-registerVendor(anthropic)
-registerVendor(openai)
-registerVendor(gemini)
-registerVendor(moonshot)
-registerVendor(deepseek)
-registerVendor(minimax)
-registerVendor(bankr)
+if (!getVendor(anthropic.id)) registerVendor(anthropic)
+if (!getVendor(openai.id)) registerVendor(openai)
+if (!getVendor(gemini.id)) registerVendor(gemini)
+if (!getVendor(moonshot.id)) registerVendor(moonshot)
+if (!getVendor(deepseek.id)) registerVendor(deepseek)
+if (!getVendor(minimax.id)) registerVendor(minimax)
+if (!getVendor(bankr.id)) registerVendor(bankr)
 
 // ---------------------------------------------------------------------------
 // Gateways
@@ -56,22 +60,22 @@ import bedrock from './gateways/bedrock.js'
 import vertex from './gateways/vertex.js'
 import mistral from './gateways/mistral.js'
 
-registerGateway(ollama)
-registerGateway(lmstudio)
-registerGateway(atomicChat)
-registerGateway(openrouter)
-registerGateway(together)
-registerGateway(groq)
-registerGateway(azureOpenai)
-registerGateway(dashscopeCn)
-registerGateway(dashscopeIntl)
-registerGateway(nvidiaNim)
-registerGateway(custom)
-registerGateway(kimiCode)
-registerGateway(github)
-registerGateway(bedrock)
-registerGateway(vertex)
-registerGateway(mistral)
+if (!getGateway(ollama.id)) registerGateway(ollama)
+if (!getGateway(lmstudio.id)) registerGateway(lmstudio)
+if (!getGateway(atomicChat.id)) registerGateway(atomicChat)
+if (!getGateway(openrouter.id)) registerGateway(openrouter)
+if (!getGateway(together.id)) registerGateway(together)
+if (!getGateway(groq.id)) registerGateway(groq)
+if (!getGateway(azureOpenai.id)) registerGateway(azureOpenai)
+if (!getGateway(dashscopeCn.id)) registerGateway(dashscopeCn)
+if (!getGateway(dashscopeIntl.id)) registerGateway(dashscopeIntl)
+if (!getGateway(nvidiaNim.id)) registerGateway(nvidiaNim)
+if (!getGateway(custom.id)) registerGateway(custom)
+if (!getGateway(kimiCode.id)) registerGateway(kimiCode)
+if (!getGateway(github.id)) registerGateway(github)
+if (!getGateway(bedrock.id)) registerGateway(bedrock)
+if (!getGateway(vertex.id)) registerGateway(vertex)
+if (!getGateway(mistral.id)) registerGateway(mistral)
 
 // ---------------------------------------------------------------------------
 // Brands
@@ -84,12 +88,12 @@ import kimiBrand from './brands/kimi.js'
 import llamaBrand from './brands/llama.js'
 import qwenBrand from './brands/qwen.js'
 
-registerBrand(claudeBrand)
-registerBrand(deepseekBrand)
-registerBrand(gptBrand)
-registerBrand(kimiBrand)
-registerBrand(llamaBrand)
-registerBrand(qwenBrand)
+if (!getBrand(claudeBrand.id)) registerBrand(claudeBrand)
+if (!getBrand(deepseekBrand.id)) registerBrand(deepseekBrand)
+if (!getBrand(gptBrand.id)) registerBrand(gptBrand)
+if (!getBrand(kimiBrand.id)) registerBrand(kimiBrand)
+if (!getBrand(llamaBrand.id)) registerBrand(llamaBrand)
+if (!getBrand(qwenBrand.id)) registerBrand(qwenBrand)
 
 // ---------------------------------------------------------------------------
 // Models
@@ -102,12 +106,24 @@ import deepseekModels from './models/deepseek.js'
 import llamaModels from './models/llama.js'
 import qwenModels from './models/qwen.js'
 
-for (const model of claudeModels) registerModel(model)
-for (const model of gptModels) registerModel(model)
-for (const model of kimiModels) registerModel(model)
-for (const model of deepseekModels) registerModel(model)
-for (const model of llamaModels) registerModel(model)
-for (const model of qwenModels) registerModel(model)
+for (const model of claudeModels) {
+  if (!getModel(model.id)) registerModel(model)
+}
+for (const model of gptModels) {
+  if (!getModel(model.id)) registerModel(model)
+}
+for (const model of kimiModels) {
+  if (!getModel(model.id)) registerModel(model)
+}
+for (const model of deepseekModels) {
+  if (!getModel(model.id)) registerModel(model)
+}
+for (const model of llamaModels) {
+  if (!getModel(model.id)) registerModel(model)
+}
+for (const model of qwenModels) {
+  if (!getModel(model.id)) registerModel(model)
+}
 
 // ---------------------------------------------------------------------------
 // Anthropic Proxies (placeholder — future)

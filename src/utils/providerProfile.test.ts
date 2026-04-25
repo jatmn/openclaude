@@ -611,6 +611,39 @@ test('buildStartupEnvFromProfile leaves explicit provider selections untouched',
   assert.equal(env.OPENAI_API_KEY, undefined)
 })
 
+test('bedrock persisted profiles load and rebuild the dedicated startup env', async () => {
+  const tempDir = mkdtempSync(join(tmpdir(), 'openclaude-provider-'))
+
+  try {
+    saveProfileFile(
+      profile('bedrock', {
+        ANTHROPIC_MODEL: 'claude-sonnet-4-6',
+        ANTHROPIC_BEDROCK_BASE_URL: 'https://bedrock-proxy.example',
+      }),
+      { cwd: tempDir },
+    )
+
+    const persisted = loadProfileFile({ cwd: tempDir })
+    assert.notEqual(persisted, null)
+    assert.equal(persisted?.profile, 'bedrock')
+
+    const env = await buildStartupEnvFromProfile({
+      persisted,
+      processEnv: {},
+    })
+
+    assert.equal(env.CLAUDE_CODE_USE_BEDROCK, '1')
+    assert.equal(env.ANTHROPIC_MODEL, 'claude-sonnet-4-6')
+    assert.equal(
+      env.ANTHROPIC_BEDROCK_BASE_URL,
+      'https://bedrock-proxy.example',
+    )
+    assert.equal(env.CLAUDE_CODE_USE_OPENAI, undefined)
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true })
+  }
+})
+
 test('buildStartupEnvFromProfile preserves explicit GitHub provider settings when the legacy file is stale', async () => {
   const processEnv = {
     CLAUDE_CODE_USE_GITHUB: '1',

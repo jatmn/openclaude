@@ -27,6 +27,7 @@ export const PRESET_VENDOR_MAP: Array<{
   { preset: 'custom', vendorId: 'openai', gatewayId: 'custom' },
   { preset: 'nvidia-nim', vendorId: 'openai', gatewayId: 'nvidia-nim' },
   { preset: 'minimax', vendorId: 'minimax' },
+  { preset: 'zai', vendorId: 'zai' },
   { preset: 'bankr', vendorId: 'bankr' },
   { preset: 'atomic-chat', vendorId: 'openai', gatewayId: 'atomic-chat' },
 ]

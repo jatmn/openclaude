@@ -32,6 +32,7 @@ const EXPECTED_PRESETS = [
   'custom',
   'nvidia-nim',
   'minimax',
+  'zai',
   'bankr',
   'atomic-chat',
 ] as const satisfies readonly ProviderPreset[]

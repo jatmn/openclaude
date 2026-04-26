@@ -7,6 +7,7 @@ import { getCatalogEntriesForRoute, getModel } from './registry.js'
 import {
   getRouteDescriptor,
   resolveActiveRouteIdFromEnv,
+  resolveRouteIdFromBaseUrl,
   type RouteDescriptor,
 } from './routeMetadata.js'
 
@@ -154,9 +155,15 @@ export function resolveOpenAIShimRuntimeContext(options?: {
     runtimeEnv.OPENAI_MODEL = options.model
   }
 
-  const routeId = resolveActiveRouteIdFromEnv(runtimeEnv, {
+  const activeRouteId = resolveActiveRouteIdFromEnv(runtimeEnv, {
     activeProfileProvider: options?.activeProfileProvider,
   })
+  const baseUrlRouteId = resolveRouteIdFromBaseUrl(options?.baseUrl)
+  const routeId =
+    baseUrlRouteId &&
+    (!activeRouteId || activeRouteId === 'anthropic' || activeRouteId === 'openai')
+      ? baseUrlRouteId
+      : activeRouteId
   const descriptor =
     routeId && routeId !== 'anthropic'
       ? getRouteDescriptor(routeId)

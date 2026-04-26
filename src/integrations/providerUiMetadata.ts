@@ -32,6 +32,7 @@ export const ORDERED_PROVIDER_PRESETS: ProviderPreset[] = [
   'openai',
   'openrouter',
   'together',
+  'zai',
   'custom',
 ]
 
@@ -136,6 +137,13 @@ const PRESET_UI_OVERRIDES: Record<ProviderPreset, PresetUiOverride> = {
     apiKeyEnvVars: ['BNKR_API_KEY'],
     description: 'Bankr LLM Gateway (OpenAI-compatible)',
     modelEnvVars: ['BANKR_MODEL', 'OPENAI_MODEL'],
+  },
+  zai: {
+    apiKeyEnvVars: ['OPENAI_API_KEY'],
+    description: 'Z.AI GLM coding subscription endpoint',
+    label: 'Z.AI - GLM Coding Plan',
+    modelEnvVars: ['OPENAI_MODEL'],
+    name: 'Z.AI - GLM Coding Plan',
   },
   'atomic-chat': {
     description: 'Local Model Provider',

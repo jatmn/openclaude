@@ -48,6 +48,7 @@ export type ProviderPreset =
   | 'custom'
   | 'nvidia-nim'
   | 'minimax'
+  | 'zai'
   | 'bankr'
   | 'atomic-chat'
 

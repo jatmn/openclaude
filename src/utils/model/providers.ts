@@ -1,6 +1,9 @@
 import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from '../../services/analytics/index.js'
 import { shouldUseCodexTransport } from '../../services/api/providerConfig.js'
-import { resolveActiveRouteIdFromEnv } from '../../integrations/routeMetadata.js'
+import {
+  getTransportKindForRoute,
+  resolveActiveRouteIdFromEnv,
+} from '../../integrations/routeMetadata.js'
 import { isEnvTruthy } from '../envUtils.js'
 
 // Legacy provider categories that older model/status/runtime callers still
@@ -53,6 +56,16 @@ export function getAPIProvider(): LegacyAPIProvider {
       return isCodexModel() ? 'codex' : 'openai'
     case 'anthropic':
     default:
+      if (
+        activeRouteId &&
+        activeRouteId !== 'anthropic' &&
+        ['local', 'openai-compatible'].includes(
+          getTransportKindForRoute(activeRouteId) ?? '',
+        )
+      ) {
+        return 'openai'
+      }
+
       if (isEnvTruthy(process.env.NVIDIA_NIM)) {
         return 'nvidia-nim'
       }

@@ -30,6 +30,7 @@ import moonshot from './vendors/moonshot.js'
 import deepseek from './vendors/deepseek.js'
 import minimax from './vendors/minimax.js'
 import bankr from './vendors/bankr.js'
+import zai from './vendors/zai.js'
 
 // ---------------------------------------------------------------------------
 // Gateways
@@ -82,6 +83,7 @@ export function ensureIntegrationsLoaded(): void {
   if (!getVendor(deepseek.id)) registerVendor(deepseek)
   if (!getVendor(minimax.id)) registerVendor(minimax)
   if (!getVendor(bankr.id)) registerVendor(bankr)
+  if (!getVendor(zai.id)) registerVendor(zai)
 
   if (!getGateway(ollama.id)) registerGateway(ollama)
   if (!getGateway(lmstudio.id)) registerGateway(lmstudio)

@@ -100,6 +100,7 @@ describe('VALID_PROVIDERS', () => {
     expect(VALID_PROVIDERS).toContain('moonshotai')
     expect(VALID_PROVIDERS).toContain('openrouter')
     expect(VALID_PROVIDERS).toContain('atomic-chat')
+    expect(VALID_PROVIDERS).toContain('zai')
   })
 })
 
@@ -213,6 +214,17 @@ describe('applyProviderFlag - minimax', () => {
     expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
     expect(process.env.OPENAI_BASE_URL).toBe('https://api.minimax.io/v1')
     expect(process.env.OPENAI_MODEL).toBe('MiniMax-M2.5')
+  })
+})
+
+describe('applyProviderFlag - zai', () => {
+  test('preserves Z.AI default base URL and model semantics', () => {
+    const result = applyProviderFlag('zai', [])
+
+    expect(result.error).toBeUndefined()
+    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
+    expect(process.env.OPENAI_BASE_URL).toBe('https://api.z.ai/api/coding/paas/v4')
+    expect(process.env.OPENAI_MODEL).toBe('GLM-5.1')
   })
 })
 

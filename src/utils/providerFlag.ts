@@ -25,6 +25,8 @@ import { PRESET_VENDOR_MAP } from '../integrations/compatibility.js'
 
 const PREFERRED_PROVIDER_ORDER = [
   'anthropic',
+  'bankr',
+  'zai',
   'openai',
   'gemini',
   'mistral',
@@ -34,7 +36,6 @@ const PREFERRED_PROVIDER_ORDER = [
   'ollama',
   'nvidia-nim',
   'minimax',
-  'bankr',
 ] as const
 
 function buildValidProviders(): string[] {
@@ -207,6 +208,13 @@ export function applyProviderFlag(
       if (process.env.BNKR_API_KEY && !process.env.OPENAI_API_KEY) {
         process.env.OPENAI_API_KEY = process.env.BNKR_API_KEY
       }
+      break
+
+    case 'zai':
+      process.env.CLAUDE_CODE_USE_OPENAI = '1'
+      process.env.OPENAI_BASE_URL ??= defaultBaseUrl ?? 'https://api.z.ai/api/coding/paas/v4'
+      process.env.OPENAI_MODEL ??= 'GLM-5.1'
+      if (model) process.env.OPENAI_MODEL = model
       break
 
     default:

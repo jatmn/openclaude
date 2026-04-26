@@ -252,7 +252,11 @@ export function deserializeMessagesWithInterruptDetection(
     // when resuming against a 3P provider. These Anthropic-specific blocks cause
     // 400 errors or context corruption on OpenAI-compatible providers (issue #248 finding 5).
     const provider = getAPIProvider()
-    const isAnthropicNativeTransport = usesAnthropicNativeMessageFormat()
+    const isAnthropicNativeTransport = usesAnthropicNativeMessageFormat({
+      processEnv: process.env,
+      model: process.env.OPENAI_MODEL,
+      providerCategory: provider,
+    })
     const isThirdPartyProvider =
       provider !== 'foundry' && !isAnthropicNativeTransport
     const thinkingStripped = isThirdPartyProvider

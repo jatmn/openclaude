@@ -195,8 +195,35 @@ export function usesAnthropicNativeMessageFormat(options?: {
   processEnv?: NodeJS.ProcessEnv
   model?: string
   activeProfileProvider?: string
+  providerCategory?:
+    | 'firstParty'
+    | 'bedrock'
+    | 'vertex'
+    | 'foundry'
+    | 'openai'
+    | 'gemini'
+    | 'github'
+    | 'codex'
+    | 'nvidia-nim'
+    | 'minimax'
+    | 'mistral'
 }): boolean {
   const processEnv = options?.processEnv ?? process.env
+  const providerCategory = options?.providerCategory
+
+  if (
+    providerCategory === 'firstParty' ||
+    providerCategory === 'bedrock' ||
+    providerCategory === 'vertex' ||
+    providerCategory === 'foundry'
+  ) {
+    return true
+  }
+
+  if (providerCategory && providerCategory !== 'github') {
+    return false
+  }
+
   const routeId = resolveActiveRouteIdFromEnv(processEnv, {
     activeProfileProvider: options?.activeProfileProvider,
   })

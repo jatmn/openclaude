@@ -6,9 +6,6 @@ import { saveGlobalConfig } from '../config.js'
 
 async function importFreshModelOptionsModule() {
   mock.restore()
-  mock.module('./providers.js', () => ({
-    getAPIProvider: () => 'github',
-  }))
   const nonce = `${Date.now()}-${Math.random()}`
   return import(`./modelOptions.js?ts=${nonce}`)
 }

@@ -1,6 +1,4 @@
-import { afterEach, expect, test } from 'bun:test'
-
-import { getHardcodedTeammateModelFallback } from './teammateModel.js'
+import { afterEach, expect, mock, test } from 'bun:test'
 
 const ORIGINAL_ENV = { ...process.env }
 
@@ -21,11 +19,20 @@ function restoreEnv(): void {
 }
 
 afterEach(() => {
+  mock.restore()
   restoreEnv()
 })
 
-test('getHardcodedTeammateModelFallback returns a Mistral fallback in mistral mode', () => {
+async function importFreshTeammateModelModule() {
+  mock.restore()
+  const nonce = `${Date.now()}-${Math.random()}`
+  return import(`./teammateModel.js?ts=${nonce}`)
+}
+
+test('getHardcodedTeammateModelFallback returns a Mistral fallback in mistral mode', async () => {
   process.env.CLAUDE_CODE_USE_MISTRAL = '1'
+  const { getHardcodedTeammateModelFallback } =
+    await importFreshTeammateModelModule()
 
   expect(getHardcodedTeammateModelFallback()).toBe('devstral-latest')
 })

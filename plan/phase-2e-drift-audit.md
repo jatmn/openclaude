@@ -48,6 +48,8 @@ The remaining explicit branches are all one of:
 Follow-up hardening completed during audit review:
 
 - replaced the stale `anthropic` vs `openai-compatible` saved-profile wording in `ProviderManager`'s set-active/edit/delete picker with the descriptor-backed route provider-type label
+- completed skipped provider-surface follow-through in `src/utils/status.tsx`, `src/utils/swarm/teammateModel.ts`, `src/utils/model/configs.ts`, and `src/utils/model/deprecation.ts` so the widened `APIProvider` surface is covered consistently outside the core runtime routing path
+- `src/utils/model/configs.ts` is still treated as a Phase 2 compatibility bridge for legacy `APIProvider` consumers such as teammate fallback; the plan has not reached the later cleanup step that would remove or fully replace that table with descriptor-only consumers
 
 The known intentional runtime exception categories remain:
 

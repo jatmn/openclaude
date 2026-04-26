@@ -1,19 +1,19 @@
 # OpenClaude Descriptor Migration — Progress Tracker
 
 **Master Plan**: [`plan/cheeky-cooking-moon.md`](./cheeky-cooking-moon.md)
-**Current Phase**: Phase 2 — Runtime Metadata Adoption (complete on branch)
-**Next Planned Phase**: Phase 3 planning — follow-on cleanup after Phase 2 audit
+**Current Phase**: Phase 3 — Cleanup Planning
+**Next Planned Phase**: Phase 3A — Dead Switch Removal
 **Goal**: Establish the descriptor system without regressing current behavior. Get all metadata into one place before deeper runtime migration starts.
-**Last Updated**: 2026-04-25 19:18
+**Last Updated**: 2026-04-25 20:01
 
 ---
 
 ## Phase 1 Exit Criteria
 
-- [ ] Registry exists and loads
-- [ ] Every currently supported integration has descriptor coverage
-- [ ] Preset defaults and `/usage` can read from descriptors
-- [ ] Existing saved profiles still deserialize and activate
+- [x] Registry exists and loads
+- [x] Every currently supported integration has descriptor coverage
+- [x] Preset defaults and `/usage` can read from descriptors
+- [x] Existing saved profiles still deserialize and activate
 
 ---
 
@@ -143,14 +143,15 @@ Notes:
 - Re-ran targeted Phase 1E/1F verification on 2026-04-25 after the latest compatibility/usage/provider changes, including loader/registry sanity coverage; all targeted suites are green.
 - Filtered `bun run typecheck` output for the Phase 1 files changed in this branch is now clean.
 - Repo-wide `bun run typecheck` is still red in unrelated existing areas such as `src/__tests__/providerCounts.test.ts`, `src/assistant/sessionHistory.ts`, `src/bootstrap/state.ts`, and multiple `src/bridge/` and `src/cli/` files; that baseline issue is not a new Phase 1 blocker introduced by this branch.
+- Full review follow-up on 2026-04-25 20:01 fixed skipped provider-surface updates in `src/utils/status.tsx`, `src/utils/swarm/teammateModel.ts`, `src/utils/model/configs.ts`, and `src/utils/model/deprecation.ts`, with new focused tests in `src/utils/status.test.ts` and `src/utils/swarm/teammateModel.test.ts`.
 - After the repo-wide typecheck blocker is resolved or explicitly waived, finish Phase 1 by rerunning `bun run typecheck`, updating the exit criteria, and checking `1F complete`.
 
 ---
 
 ## Phase 1 Merge Checkpoints
 
-- [ ] **1A merged** — registry skeleton + tests checkpoint landed on `cheeky-cooking-moon`
-- [ ] **1B+1C merged** — descriptor inventory + brand/model index checkpoint landed on `cheeky-cooking-moon`
+- [x] **1A merged** — registry skeleton + tests checkpoint landed on `cheeky-cooking-moon`
+- [x] **1B+1C merged** — descriptor inventory + brand/model index checkpoint landed on `cheeky-cooking-moon`
 - [x] **1D merged** — config compatibility checkpoint landed on `cheeky-cooking-moon`
 - [x] **1E merged** — CLI/usage checkpoint landed on `cheeky-cooking-moon`
 - [ ] **1F complete** — all tests green, exit criteria met, ready for Phase 2
@@ -170,20 +171,24 @@ Notes:
 
 ### Phase 2 Entry Blockers
 
-- [ ] Phase 1F is completed, or the repo-wide `tsc --noEmit` baseline is explicitly accepted as pre-existing debt
-- [ ] Phase 1 merge checkpoints are confirmed in branch order on `cheeky-cooking-moon`
-- [ ] Phase 1 exit criteria are reconciled with current behavior before Phase 2 consumer migrations begin
+- [x] Phase 1F is completed, or the repo-wide `tsc --noEmit` baseline is explicitly accepted as pre-existing debt
+- [x] Phase 1 merge checkpoints are confirmed in branch order on `cheeky-cooking-moon`
+- [x] Phase 1 exit criteria are reconciled with current behavior before Phase 2 consumer migrations begin
 
 Notes:
 - Once the entry blockers clear, start `2A` and `2A.5` first; they are the planned front door for Phase 2 work.
 - `2B` depends on `2A.5`, `2C` depends on `2A.5`, `2D` should coordinate with `2A` and `2B`, and `2E` stays last.
 - `2A` was completed on-branch on 2026-04-25 by explicit user direction before the broader entry blockers were formally reconciled; keep that sequencing note visible while the remaining Phase 2 packets stay gated behind stable follow-on prerequisites.
+- Reconciled during the 2026-04-25 tracker/code review pass:
+  - repo-wide `bun run typecheck` was re-run and the remaining failures were explicitly accepted as broader pre-existing repo debt rather than Phase 1/2 regressions
+  - Phase 1 checkpoints were confirmed on-branch in commit order (`d557c6b`, `0d0c437`, `9c02a21`, `4f3411b`, `cff7bfa`, `9f5fd87`, `b332b3f`)
+  - Phase 1 exit criteria were checked against the live branch state and marked accordingly
 
 ### Phase 2 Recommended Sequence
 
-- [ ] Migrate read-only metadata consumers first
-- [ ] Migrate env/routing helpers second
-- [ ] Retire duplicated logic only after parity is verified
+- [x] Migrate read-only metadata consumers first
+- [x] Migrate env/routing helpers second
+- [x] Retire duplicated logic only after parity is verified
 
 ---
 
@@ -367,21 +372,134 @@ Notes:
 - Follow-up hardening on 2026-04-25 19:18:
   - expanded `plan/phase-2e-drift-audit.md` to include the remaining intentional non-switch provider branches in `routeMetadata.ts`, `openaiShim.ts`, `provider.tsx`, and `conversationRecovery.ts`
   - replaced stale saved-profile picker wording in `src/components/ProviderManager.tsx` with the descriptor-backed route provider-type label and added focused regression coverage
+- Review follow-up on 2026-04-25 20:01:
+  - fixed skipped provider-category follow-through in `src/utils/status.tsx` so Status now covers `nvidia-nim` and `minimax`
+  - fixed Mistral teammate fallback coverage in `src/utils/swarm/teammateModel.ts` by adding `mistral` entries to the shared model config table
+  - filled out third-party provider placeholders in `src/utils/model/deprecation.ts` and added focused tests for the new status/teammate behavior
+  - clarified that `src/utils/model/configs.ts` remains a transitional compatibility table for legacy `APIProvider` callers during Phase 2; replacing or consolidating that table belongs to later Phase 3 cleanup work once descriptor-backed callers fully take over
 - Focused Phase 2E verification on 2026-04-25 is green:
   - `bun test src/components/ProviderManager.test.tsx src/commands/provider/provider.test.tsx src/utils/providerValidation.test.ts src/integrations/discoveryService.test.ts src/commands/model/model.test.tsx`
   - `bun test src/utils/providerDiscovery.test.ts src/utils/model/providers.test.ts src/services/api/openaiShim.test.ts src/utils/conversationRecovery.test.ts`
+  - `bun test src/utils/status.test.ts src/utils/swarm/teammateModel.test.ts src/utils/model/providers.test.ts src/components/ProviderManager.test.tsx src/commands/provider/provider.test.tsx`
 - Filtered `bun run typecheck` for the audited runtime/provider files still reports the same pre-existing baseline noise in `src/services/api/openaiShim.ts` and `src/utils/conversationRecovery.ts`; no new 2E-specific typecheck failures were introduced by this packet.
 
 ---
 
 ## Phase 2 Merge Checkpoints
 
-- [ ] **2A merged** — validation metadata checkpoint landed on `cheeky-cooking-moon`
-- [ ] **2A.5 merged** — discovery cache service checkpoint landed on `cheeky-cooking-moon`
-- [ ] **2B merged** — discovery/readiness metadata checkpoint landed on `cheeky-cooking-moon`
-- [ ] **2C merged** — provider UI metadata checkpoint landed on `cheeky-cooking-moon`
-- [ ] **2D merged** — runtime provider detection checkpoint landed on `cheeky-cooking-moon`
+- [x] **2A merged** — validation metadata checkpoint landed on `cheeky-cooking-moon`
+- [x] **2A.5 merged** — discovery cache service checkpoint landed on `cheeky-cooking-moon`
+- [x] **2B merged** — discovery/readiness metadata checkpoint landed on `cheeky-cooking-moon`
+- [x] **2C merged** — provider UI metadata checkpoint landed on `cheeky-cooking-moon`
+- [x] **2D merged** — runtime provider detection checkpoint landed on `cheeky-cooking-moon`
 - [x] **2E complete** — drift audit is green and Phase 3 can begin
+
+---
+
+## Phase 3: Cleanup
+
+**Status**: `READY`
+
+**Goal**: Remove transitional duplication once descriptor-backed behavior is trusted.
+
+### Phase 3 Exit Criteria
+
+- [ ] Obsolete switch chains are removed
+- [ ] Compatibility shims are minimized and clearly named
+- [ ] Remaining exceptions are intentional and documented
+
+### Phase 3 Entry Blockers
+
+- [x] Phase 2 is complete on `cheeky-cooking-moon`
+- [x] Phase 2E drift audit is recorded in `plan/phase-2e-drift-audit.md`
+- [ ] Decide whether repo-wide `bun run typecheck` baseline debt stays accepted during Phase 3 implementation, or whether any cleanup packet should carve off part of that debt explicitly
+
+Notes:
+- Phase 3 starts from the completed Phase 2 drift audit, not from the original migration assumptions.
+- `src/utils/model/configs.ts` is currently a compatibility bridge for legacy `APIProvider` callers such as teammate fallback; Phase 3 is where we decide whether to keep, rename, or retire that bridge.
+- Provider surfaces already identified as transitional or likely Phase 3 cleanup candidates include:
+  - legacy `APIProvider` compatibility mapping in `src/utils/model/providers.ts`
+  - compatibility tables in `src/utils/model/configs.ts`
+  - duplicated provider/env shaping spread across `src/utils/providerProfiles.ts`, `src/utils/providerProfile.ts`, and startup/runtime helpers
+  - remaining explicit provider branches recorded in `plan/phase-2e-drift-audit.md`
+
+### Phase 3 Recommended Sequence
+
+- [ ] Remove dead metadata switches first
+- [ ] Consolidate overlapping type/name surfaces second
+- [ ] Consolidate env-shaping/runtime bridges third
+- [ ] Finish with one more audit and documentation pass
+
+---
+
+## Phase 3A: Dead Switch Removal
+
+**Status**: `READY`
+
+- [ ] Identify every switch made redundant by descriptors
+- [ ] Remove only the switches proven obsolete by tests
+- [ ] Keep a short migration note in commit/PR text for anything user-visible
+
+Notes:
+- Start from the inventory already captured in `plan/phase-2e-drift-audit.md`.
+- Candidate removals should exclude switches already classified as intentional compatibility bridges, transport executors, or UI state machines.
+- Expected early-review candidates include older provider-label/default branches that are now fully descriptor-backed.
+
+---
+
+## Phase 3B: Type and Naming Consolidation
+
+**Status**: `READY`
+
+- [ ] Decide which legacy names remain public API
+- [ ] Keep compatibility aliases where callers still rely on them
+- [ ] Rename internal helpers where descriptor terminology is clearer
+
+Notes:
+- This packet should explicitly decide the long-term role of `APIProvider` versus descriptor route ids.
+- `src/utils/model/configs.ts` and similar provider-keyed tables should either be renamed as explicit compatibility bridges or moved behind clearer descriptor-era helpers.
+- Any consolidation here must preserve the external caller contracts that still intentionally consume legacy provider categories.
+
+---
+
+## Phase 3C: Env-Shaping Consolidation
+
+**Status**: `READY`
+
+- [ ] Compare `providerProfiles.ts`, `providerProfile.ts`, and startup env builders
+- [ ] Centralize the parts that can now be safely descriptor-driven
+- [ ] Replace eligible `openaiShim.ts` base URL/provider conditionals with descriptor-backed transport config
+- [ ] Keep `reasoning_content` preservation behavior intact for routes that require it
+- [ ] Add or retain regression coverage for assistant messages with thinking blocks, no thinking blocks, string content, tool calls, and synthetic interrupt messages
+- [ ] Preserve special-case behavior where transport contracts still differ
+
+Notes:
+- Phase 2D and 2E intentionally left some env shaping in place for compatibility; this is the cleanup packet that can reduce that duplication.
+- The known intentional exceptions from Phase 2E (`github`, `mistral`, `bedrock`, `vertex`, `foundry`, env-only MiniMax fallback, env-only NVIDIA NIM fallback) must be re-evaluated carefully rather than flattened by default.
+- `openaiShim.ts` should only lose branches that are already provably covered by descriptor/runtime metadata.
+
+---
+
+## Phase 3D: Final Audit and Documentation Pass
+
+**Status**: `READY`
+
+- [ ] Inventory all provider-specific special cases still left in the repo
+- [ ] Classify them as intentional, temporary, or missed migration work
+- [ ] Update the architecture note with final constraints and known exceptions
+
+Notes:
+- This packet should build directly on the earlier `plan/phase-2e-drift-audit.md` inventory rather than restarting the audit from scratch.
+- The expected output is a tighter final exception list plus plan/docs updates that clearly distinguish intentional long-term exceptions from temporary cleanup leftovers.
+
+---
+
+## Phase 3 Merge Checkpoints
+
+- [ ] **3A merged** — dead-switch cleanup landed in small safe packets
+- [ ] **3B merged** — type/naming consolidation landed separately from runtime behavior changes
+- [ ] **3C merged** — env-shaping consolidation landed after targeted regression tests
+- [ ] **3D complete** — final audit/doc pass is green and Phase 4 can begin
 
 ---
 

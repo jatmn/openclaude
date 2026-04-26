@@ -1,5 +1,6 @@
 import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from '../../services/analytics/index.js'
 import { shouldUseCodexTransport } from '../../services/api/providerConfig.js'
+import { resolveActiveRouteIdFromEnv } from '../../integrations/routeMetadata.js'
 import { isEnvTruthy } from '../envUtils.js'
 
 export type APIProvider =
@@ -16,35 +17,50 @@ export type APIProvider =
   | 'mistral'
 
 export function getAPIProvider(): APIProvider {
-  if (isEnvTruthy(process.env.NVIDIA_NIM)) {
-    return 'nvidia-nim'
+  if (isEnvTruthy(process.env.CLAUDE_CODE_USE_FOUNDRY)) {
+    return 'foundry'
   }
-  // MiniMax is signalled by a real API key, not a '1'/'true' flag. Using
-  // isEnvTruthy() here silently treated every MiniMax user as 'firstParty'
-  // (or 'openai' once they set CLAUDE_CODE_USE_OPENAI via the profile),
-  // making every provider-kind-specific branch for 'minimax' elsewhere in
-  // the codebase unreachable. Presence check is the correct signal.
-  if (typeof process.env.MINIMAX_API_KEY === 'string' && process.env.MINIMAX_API_KEY.trim() !== '') {
-    return 'minimax'
+
+  const activeRouteId = resolveActiveRouteIdFromEnv(process.env)
+
+  switch (activeRouteId) {
+    case 'gemini':
+      return 'gemini'
+    case 'mistral':
+      return 'mistral'
+    case 'github':
+      return 'github'
+    case 'bedrock':
+      return 'bedrock'
+    case 'vertex':
+      return 'vertex'
+    case 'nvidia-nim':
+      return 'nvidia-nim'
+    case 'minimax':
+      return 'minimax'
+    case 'openai':
+    case 'custom':
+      if (isEnvTruthy(process.env.NVIDIA_NIM)) {
+        return 'nvidia-nim'
+      }
+      return isCodexModel() ? 'codex' : 'openai'
+    case 'anthropic':
+    default:
+      if (isEnvTruthy(process.env.NVIDIA_NIM)) {
+        return 'nvidia-nim'
+      }
+
+      // Preserve the legacy MiniMax env-only signal as a fallback for users
+      // who still export MINIMAX_API_KEY without the newer route/base-url env.
+      if (
+        typeof process.env.MINIMAX_API_KEY === 'string' &&
+        process.env.MINIMAX_API_KEY.trim() !== ''
+      ) {
+        return 'minimax'
+      }
+
+      return 'firstParty'
   }
-  return isEnvTruthy(process.env.CLAUDE_CODE_USE_GEMINI)
-    ? 'gemini'
-    :
-    isEnvTruthy(process.env.CLAUDE_CODE_USE_MISTRAL)
-    ? 'mistral'
-    : isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB)
-      ? 'github'
-      : isEnvTruthy(process.env.CLAUDE_CODE_USE_OPENAI)
-        ? isCodexModel()
-          ? 'codex'
-          : 'openai'
-        : isEnvTruthy(process.env.CLAUDE_CODE_USE_BEDROCK)
-          ? 'bedrock'
-          : isEnvTruthy(process.env.CLAUDE_CODE_USE_VERTEX)
-            ? 'vertex'
-            : isEnvTruthy(process.env.CLAUDE_CODE_USE_FOUNDRY)
-              ? 'foundry'
-              : 'firstParty'
 }
 
 export function usesAnthropicAccountFlow(): boolean {

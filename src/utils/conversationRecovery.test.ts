@@ -4,12 +4,15 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  deserializeMessages,
   loadConversationForResume,
   ResumeTranscriptTooLargeError,
 } from './conversationRecovery.ts'
 
 const tempDirs: string[] = []
 const originalSimple = process.env.CLAUDE_CODE_SIMPLE
+const originalGithub = process.env.CLAUDE_CODE_USE_GITHUB
+const originalOpenAIModel = process.env.OPENAI_MODEL
 const sessionId = '00000000-0000-4000-8000-000000001999'
 const ts = '2026-04-02T00:00:00.000Z'
 
@@ -47,6 +50,8 @@ async function writeJsonl(entry: unknown): Promise<string> {
 
 afterEach(async () => {
   process.env.CLAUDE_CODE_SIMPLE = originalSimple
+  process.env.CLAUDE_CODE_USE_GITHUB = originalGithub
+  process.env.OPENAI_MODEL = originalOpenAIModel
   await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })))
 })
 
@@ -76,4 +81,27 @@ test('loadConversationForResume rejects oversized reconstructed transcripts', as
   expect((caught as Error).message).toContain(
     'Reconstructed transcript is too large to resume safely',
   )
+})
+
+test('deserializeMessages preserves thinking blocks for GitHub native Claude transport', () => {
+  process.env.CLAUDE_CODE_USE_GITHUB = '1'
+  process.env.OPENAI_MODEL = 'claude-sonnet-4-6'
+
+  const deserialized = deserializeMessages([
+    {
+      type: 'assistant',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: 'need a plan' },
+          { type: 'text', text: 'working on it' },
+        ],
+      },
+    } as any,
+  ])
+
+  const content = (deserialized[0] as any)?.message?.content as Array<{
+    type: string
+  }>
+  expect(content.some(block => block.type === 'thinking')).toBe(true)
 })

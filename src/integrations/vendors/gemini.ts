@@ -14,6 +14,9 @@ export default defineVendor({
   },
   transportConfig: {
     kind: 'gemini-native',
+    openaiShim: {
+      removeBodyFields: ['store'],
+    },
   },
   validation: {
     kind: 'gemini-credential',

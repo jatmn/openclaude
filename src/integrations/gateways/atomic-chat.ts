@@ -19,6 +19,7 @@ export default defineGateway({
     kind: 'local',
     openaiShim: {
       supportsUserCustomHeaders: true,
+      maxTokensField: 'max_tokens',
     },
   },
   catalog: {

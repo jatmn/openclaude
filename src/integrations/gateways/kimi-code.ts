@@ -15,6 +15,11 @@ export default defineGateway({
     kind: 'openai-compatible',
     openaiShim: {
       supportsUserCustomHeaders: true,
+      preserveReasoningContent: true,
+      requireReasoningContentOnAssistantMessages: true,
+      reasoningContentFallback: '',
+      maxTokensField: 'max_tokens',
+      removeBodyFields: ['store'],
     },
   },
   catalog: {

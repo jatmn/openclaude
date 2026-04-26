@@ -14,6 +14,13 @@ export default defineVendor({
   },
   transportConfig: {
     kind: 'openai-compatible',
+    openaiShim: {
+      preserveReasoningContent: true,
+      requireReasoningContentOnAssistantMessages: true,
+      reasoningContentFallback: '',
+      maxTokensField: 'max_tokens',
+      removeBodyFields: ['store'],
+    },
   },
   catalog: {
     source: 'static',

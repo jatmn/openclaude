@@ -2,9 +2,9 @@
 
 **Master Plan**: [`plan/cheeky-cooking-moon.md`](./cheeky-cooking-moon.md)
 **Current Phase**: Phase 2 — Runtime Metadata Adoption
-**Next Planned Phase**: Phase 2D — Runtime Provider Detection Alignment
+**Next Planned Phase**: Phase 2E — Phase-2 Verification and Drift Audit
 **Goal**: Establish the descriptor system without regressing current behavior. Get all metadata into one place before deeper runtime migration starts.
-**Last Updated**: 2026-04-25 18:30
+**Last Updated**: 2026-04-25 18:53
 
 ---
 
@@ -311,23 +311,38 @@ Notes:
 
 ## Phase 2D: Runtime Provider Detection Alignment
 
-**Status**: `BLOCKED`
+**Status**: `COMPLETE`
 
-- [ ] Define the boundary between `APIProvider` and descriptor ids
-- [ ] Decide which legacy runtime provider names stay externally visible
-- [ ] Map descriptor-backed state onto `getAPIProvider()` without breaking existing callers
-- [ ] Inventory current `openaiShim.ts` provider/base-url conditionals and classify which can become descriptor metadata
-- [ ] Preserve DeepSeek/Moonshot `reasoning_content` replay behavior from PR #895 if it has landed
-- [ ] If PR #895 has not landed, explicitly test whether the migration still covers its reported DeepSeek thinking-mode edge cases
-- [ ] Preserve Z.AI GLM Coding Plan behavior from PR #896 if it has landed
-- [ ] Move Z.AI-style `max_tokens`, `store` stripping, thinking request format, and `reasoning_content` gates into descriptor metadata where possible
-- [ ] Avoid assuming DeepSeek-like reasoning behavior only applies to direct DeepSeek URLs; gateways may expose models with the same requirement
-- [ ] Document exceptions such as `github`, `bedrock`, `vertex`, and `mistral`
-- [ ] Verify existing callers still receive expected provider categories
+- [x] Define the boundary between `APIProvider` and descriptor ids
+- [x] Decide which legacy runtime provider names stay externally visible
+- [x] Map descriptor-backed state onto `getAPIProvider()` without breaking existing callers
+- [x] Inventory current `openaiShim.ts` provider/base-url conditionals and classify which can become descriptor metadata
+- [x] Preserve DeepSeek/Moonshot `reasoning_content` replay behavior from PR #895 if it has landed
+- [x] If PR #895 has not landed, explicitly test whether the migration still covers its reported DeepSeek thinking-mode edge cases
+- [x] Preserve Z.AI GLM Coding Plan behavior from PR #896 if it has landed
+- [x] Move Z.AI-style `max_tokens`, `store` stripping, thinking request format, and `reasoning_content` gates into descriptor metadata where possible
+- [x] Avoid assuming DeepSeek-like reasoning behavior only applies to direct DeepSeek URLs; gateways may expose models with the same requirement
+- [x] Document exceptions such as `github`, `bedrock`, `vertex`, and `mistral`
+- [x] Verify existing callers still receive expected provider categories
 
 Notes:
 - Unblock after `2A` and `2B` establish the descriptor-backed metadata that runtime detection will consume.
 - Before starting, check whether PR `#895` or PR `#896` landed so this packet preserves the right transport quirks instead of duplicating stale assumptions.
+- Active work resumed on 2026-04-25 18:41. The first implementation slice is aligning `getAPIProvider()` with descriptor-backed active-route resolution while preserving the legacy externally visible provider categories that existing callers still expect.
+- Current runtime-migration target: move OpenAI-shim request shaping for `reasoning_content`, `max_tokens`, and `store` onto route/model transport metadata where possible, while keeping explicit procedural fallbacks only for cases that cannot yet be expressed by the current descriptor inventory.
+- Completed on 2026-04-25 18:53:
+  - `src/utils/model/providers.ts` now maps descriptor-backed active routes onto the legacy `APIProvider` categories, with explicit compatibility fallbacks kept only for `foundry`, env-only `NVIDIA_NIM`, and env-only MiniMax recovery.
+  - `src/integrations/runtimeMetadata.ts` now centralizes runtime route/shim metadata resolution, merges route/model OpenAI-shim overrides, and exposes an Anthropic-native transport check used by resume handling.
+  - direct DeepSeek, Moonshot, Kimi Code, Gemini, GitHub, Mistral, and local route quirks now come from descriptor-backed OpenAI-shim metadata instead of hand-coded base-url/provider conditionals in `openaiShim.ts`.
+  - gateway-routed DeepSeek models now inherit the same reasoning-content, `max_tokens`, and `store` behavior without relying on direct DeepSeek base URLs.
+  - GitHub Claude native transport is now treated as Anthropic-native during conversation recovery so thinking blocks are preserved for that path.
+- Exception notes:
+  - `github`, `mistral`, `bedrock`, and `vertex` remain explicit runtime exception categories because existing callers still consume those legacy provider names directly.
+  - PR `#896` / Z.AI still has not landed in this branch, so the Z.AI-specific preservation check completed as a no-op audit rather than a code migration.
+- Focused verification on 2026-04-25 is green:
+  - `bun test src/utils/model/providers.test.ts src/utils/providerProfiles.test.ts src/utils/conversationRecovery.test.ts`
+  - `bun test src/services/api/openaiShim.test.ts`
+- Filtered `bun run typecheck` for the new runtime-metadata file is clean; broader filtered output still includes pre-existing noise in `src/services/api/openaiShim.test.ts` and `src/utils/conversationRecovery.ts`, which predates this packet.
 
 ---
 

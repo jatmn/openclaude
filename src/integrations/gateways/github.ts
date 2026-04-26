@@ -25,6 +25,7 @@ export default defineGateway({
     kind: 'openai-compatible',
     openaiShim: {
       supportsUserCustomHeaders: true,
+      maxTokensField: 'max_tokens',
     },
   },
   validation: {

@@ -129,9 +129,25 @@ describe('integration artifact generator', () => {
     )
   })
 
-  test('sorts presets by description and always pins custom to the bottom', async () => {
+  test('pins anthropic to the top, sorts the rest by description, and keeps custom at the bottom', async () => {
     await withFixtureRepo(
       {
+        'src/integrations/vendors/anthropic.ts': `export default {
+  id: 'anthropic',
+  label: 'Anthropic',
+  classification: 'anthropic',
+  defaultBaseUrl: 'https://api.anthropic.com',
+  defaultModel: 'claude-sonnet-4-6',
+  setup: { requiresAuth: true, authMode: 'api-key', credentialEnvVars: ['ANTHROPIC_API_KEY'] },
+  transportConfig: { kind: 'anthropic-native' },
+  preset: {
+    id: 'anthropic',
+    description: 'Zulu direct API',
+    apiKeyEnvVars: ['ANTHROPIC_API_KEY'],
+  },
+  usage: { supported: false },
+}
+`,
         'src/integrations/vendors/openai.ts': `export default {
   id: 'openai',
   label: 'OpenAI',
@@ -205,7 +221,7 @@ describe('integration artifact generator', () => {
           match => match[1]!,
         )
 
-        expect(orderedPresetIds).toEqual(['alpha', 'zeta', 'custom'])
+        expect(orderedPresetIds).toEqual(['anthropic', 'alpha', 'zeta', 'custom'])
       },
     )
   })

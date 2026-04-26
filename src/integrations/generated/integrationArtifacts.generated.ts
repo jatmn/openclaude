@@ -48,6 +48,22 @@ export const MODEL_DESCRIPTORS = MODEL_DESCRIPTOR_GROUPS.flat() satisfies readon
 
 export const PROVIDER_PRESET_MANIFEST = [
   {
+    "preset": "anthropic",
+    "routeKind": "vendor",
+    "routeId": "anthropic",
+    "vendorId": "anthropic",
+    "description": "Native Claude API (x-api-key auth)",
+    "apiKeyEnvVars": [
+      "ANTHROPIC_API_KEY"
+    ],
+    "baseUrlEnvVars": [
+      "ANTHROPIC_BASE_URL"
+    ],
+    "modelEnvVars": [
+      "ANTHROPIC_MODEL"
+    ]
+  },
+  {
     "preset": "dashscope-cn",
     "routeKind": "gateway",
     "routeId": "dashscope-cn",
@@ -203,22 +219,6 @@ export const PROVIDER_PRESET_MANIFEST = [
     ]
   },
   {
-    "preset": "anthropic",
-    "routeKind": "vendor",
-    "routeId": "anthropic",
-    "vendorId": "anthropic",
-    "description": "Native Claude API (x-api-key auth)",
-    "apiKeyEnvVars": [
-      "ANTHROPIC_API_KEY"
-    ],
-    "baseUrlEnvVars": [
-      "ANTHROPIC_BASE_URL"
-    ],
-    "modelEnvVars": [
-      "ANTHROPIC_MODEL"
-    ]
-  },
-  {
     "preset": "nvidia-nim",
     "routeKind": "gateway",
     "routeId": "nvidia-nim",
@@ -300,6 +300,7 @@ export const PROVIDER_PRESET_MANIFEST = [
 ] as const satisfies readonly ProviderPresetManifestEntry[]
 export type ProviderPreset = (typeof PROVIDER_PRESET_MANIFEST)[number]['preset']
 export const ORDERED_PROVIDER_PRESETS = [
+  "anthropic",
   "dashscope-cn",
   "dashscope-intl",
   "azure-openai",
@@ -314,7 +315,6 @@ export const ORDERED_PROVIDER_PRESETS = [
   "mistral",
   "moonshotai",
   "kimi-code",
-  "anthropic",
   "nvidia-nim",
   "openai",
   "openrouter",

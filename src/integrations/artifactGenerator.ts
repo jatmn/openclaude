@@ -217,6 +217,42 @@ function buildPresetManifestEntry(
   }
 }
 
+function compareProviderPresetEntries(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+): number {
+  const leftPreset = String(left.preset)
+  const rightPreset = String(right.preset)
+
+  if (leftPreset === rightPreset) {
+    return 0
+  }
+
+  if (leftPreset === 'anthropic') {
+    return -1
+  }
+  if (rightPreset === 'anthropic') {
+    return 1
+  }
+
+  if (leftPreset === 'custom') {
+    return 1
+  }
+  if (rightPreset === 'custom') {
+    return -1
+  }
+
+  const descriptionDelta = PRESET_DESCRIPTION_COLLATOR.compare(
+    String(left.description),
+    String(right.description),
+  )
+  if (descriptionDelta !== 0) {
+    return descriptionDelta
+  }
+
+  return PRESET_DESCRIPTION_COLLATOR.compare(leftPreset, rightPreset)
+}
+
 function validatePresetMetadata(routeModules: RouteModule[]): void {
   const presetIds = new Map<string, string>()
   const routeIds = new Set(routeModules.map(routeModule => routeModule.descriptor.id))
@@ -341,27 +377,7 @@ function renderIntegrationArtifacts(
   const presetManifest = loadedModules.routeModules
     .filter(routeModule => routeModule.descriptor.preset)
     .map(routeModule => buildPresetManifestEntry(routeModule, routeModule.descriptor.preset!))
-    .sort((left, right) => {
-      if (left.preset === 'custom') {
-        return right.preset === 'custom' ? 0 : 1
-      }
-      if (right.preset === 'custom') {
-        return -1
-      }
-
-      const descriptionDelta = PRESET_DESCRIPTION_COLLATOR.compare(
-        String(left.description),
-        String(right.description),
-      )
-      if (descriptionDelta !== 0) {
-        return descriptionDelta
-      }
-
-      return PRESET_DESCRIPTION_COLLATOR.compare(
-        String(left.preset),
-        String(right.preset),
-      )
-    })
+    .sort(compareProviderPresetEntries)
 
   const orderedProviderPresets = presetManifest.map(entry => entry.preset)
 

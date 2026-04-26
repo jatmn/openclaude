@@ -97,31 +97,31 @@ async function waitForCondition(
   throw new Error('Timed out waiting for ProviderManager test condition')
 }
 
-// Provider list is sorted alphabetically by label in the preset picker, so
-// reaching a given provider takes more keypresses than it used to. Keep the
+// Provider list is sorted from generated preset metadata by description, with
+// Codex OAuth injected into slot 7 and Custom always pinned last. Keep the
 // target-by-label indirection here so these tests survive future list edits
-// without further churn.
+// without hardcoding raw key counts.
 //
 // Order matches ProviderManager.renderPresetSelection() when
 // canUseCodexOAuth === true (default in mocked tests).
 const PRESET_ORDER = [
-  'Alibaba Coding Plan',
   'Alibaba Coding Plan (China)',
-  'Anthropic',
-  'Atomic Chat',
+  'Alibaba Coding Plan',
   'Azure OpenAI',
   'Bankr',
-  'Codex OAuth',
   'DeepSeek',
   'Google Gemini',
+  'Codex OAuth',
   'Groq',
   'LM Studio',
+  'Atomic Chat',
+  'Ollama',
   'MiniMax',
-  'Mistral',
+  'Mistral AI',
   'Moonshot AI - API',
   'Moonshot AI - Kimi Code',
+  'Anthropic',
   'NVIDIA NIM',
-  'Ollama',
   'OpenAI',
   'OpenRouter',
   'Together AI',

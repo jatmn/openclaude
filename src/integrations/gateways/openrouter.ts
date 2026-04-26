@@ -20,6 +20,12 @@ export default defineGateway({
       supportsUserCustomHeaders: true,
     },
   },
+  preset: {
+    id: 'openrouter',
+    description: 'OpenRouter OpenAI-compatible endpoint',
+    apiKeyEnvVars: ['OPENROUTER_API_KEY'],
+    vendorId: 'openai',
+  },
   catalog: {
     source: 'hybrid',
     discovery: { kind: 'openai-compatible' },

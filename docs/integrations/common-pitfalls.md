@@ -127,14 +127,22 @@ Changing descriptor metadata and assuming every public surface is already
 descriptor-native.
 
 Safer rule:
-Check whether the route also needs follow-through in:
+If the route should be user-facing in preset flows, add descriptor `preset`
+metadata and regenerate the artifacts:
+
+- `bun run integrations:generate`
+- `src/integrations/generated/integrationArtifacts.generated.ts`
+- env-facing flows that still preserve legacy names
+
+Do not hand-edit:
 
 - `src/integrations/compatibility.ts`
 - `src/integrations/profileResolver.ts`
 - `src/integrations/providerUiMetadata.ts`
-- env-facing or preset-facing flows that still preserve legacy names
+- preset typing or preset ordering tables
 
-Only touch those surfaces when the route is meant to be user-facing.
+Only touch remaining env-facing compatibility surfaces when the route truly
+needs them.
 
 ## Pitfall 12: Using stale repo paths in docs
 

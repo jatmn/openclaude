@@ -167,6 +167,12 @@ export function getBrandsForVendor(vendorId: string): BrandDescriptor[] {
 export function validateIntegrationRegistry(): RegistryValidationResult {
   const errors: string[] = []
   const warnings: string[] = []
+  const allVendors = getAllVendors()
+  const allGateways = getAllGateways()
+  const allAnthropicProxies = getAllAnthropicProxies()
+  const allRoutes: Array<
+    VendorDescriptor | GatewayDescriptor | AnthropicProxyDescriptor
+  > = [...allVendors, ...allGateways, ...allAnthropicProxies]
 
   // Helper: check duplicates within a map
   function checkDuplicates<T extends { id: string }>(
@@ -183,15 +189,97 @@ export function validateIntegrationRegistry(): RegistryValidationResult {
   }
 
   checkDuplicates(getAllBrands(), 'brand')
-  checkDuplicates(getAllVendors(), 'vendor')
-  checkDuplicates(getAllGateways(), 'gateway')
-  checkDuplicates(getAllAnthropicProxies(), 'anthropic-proxy')
+  checkDuplicates(allVendors, 'vendor')
+  checkDuplicates(allGateways, 'gateway')
+  checkDuplicates(allAnthropicProxies, 'anthropic-proxy')
   checkDuplicates(getAllModels(), 'model')
+
+  const presetOwners = new Map<string, string>()
+  const vendorIds = new Set(allVendors.map(vendor => vendor.id))
+
+  for (const route of allRoutes) {
+    const preset = route.preset
+    if (!preset) {
+      continue
+    }
+
+    const presetId = preset.id.trim()
+    if (!presetId) {
+      errors.push(`Route "${route.id}" opted into presets with an empty preset id`)
+      continue
+    }
+
+    const existingOwner = presetOwners.get(presetId)
+    if (existingOwner) {
+      errors.push(
+        `Duplicate preset id "${presetId}" defined by routes "${existingOwner}" and "${route.id}"`,
+      )
+    } else {
+      presetOwners.set(presetId, route.id)
+    }
+
+    if (!preset.description.trim()) {
+      errors.push(
+        `Route "${route.id}" opted into presets without a preset description`,
+      )
+    }
+
+    const effectiveApiKeyEnvVars =
+      preset.apiKeyEnvVars ?? route.setup.credentialEnvVars ?? []
+    if (
+      route.setup.requiresAuth &&
+      route.setup.authMode === 'api-key' &&
+      effectiveApiKeyEnvVars.length === 0
+    ) {
+      errors.push(
+        `Preset route "${route.id}" requires API-key auth but does not declare any credential env vars`,
+      )
+    }
+
+    const hasDefaultBaseUrl =
+      'defaultBaseUrl' in route &&
+      typeof route.defaultBaseUrl === 'string' &&
+      route.defaultBaseUrl.trim().length > 0
+    if (!hasDefaultBaseUrl && !preset.fallbackBaseUrl) {
+      errors.push(
+        `Preset route "${route.id}" must provide a defaultBaseUrl or preset.fallbackBaseUrl`,
+      )
+    }
+
+    const defaultModelValue =
+      'defaultModel' in route ? route.defaultModel : undefined
+    const hasCatalogDefaultModel =
+      (route.catalog?.models?.find(model => model.default) ??
+        route.catalog?.models?.[0]) !== undefined
+    const hasDefaultModel =
+      typeof defaultModelValue === 'string'
+        ? defaultModelValue.trim().length > 0
+        : Array.isArray(defaultModelValue)
+          ? defaultModelValue.length > 0
+          : hasCatalogDefaultModel
+    if (!hasDefaultModel && !preset.fallbackModel) {
+      errors.push(
+        `Preset route "${route.id}" must provide a defaultModel or preset.fallbackModel`,
+      )
+    }
+
+    if (!vendorIds.has(route.id)) {
+      if (!preset.vendorId?.trim()) {
+        errors.push(
+          `Preset route "${route.id}" must declare preset.vendorId because it is not a direct vendor`,
+        )
+      } else if (!vendorIds.has(preset.vendorId)) {
+        errors.push(
+          `Preset route "${route.id}" references missing preset.vendorId "${preset.vendorId}"`,
+        )
+      }
+    }
+  }
 
   // Validate catalog entries on gateways and vendors
   const routes: Array<{ id: string; catalog?: import('./descriptors.js').ModelCatalogConfig }> = [
-    ...getAllGateways().map(g => ({ id: g.id, catalog: g.catalog })),
-    ...getAllVendors().map(v => ({ id: v.id, catalog: v.catalog })),
+    ...allGateways.map(g => ({ id: g.id, catalog: g.catalog })),
+    ...allVendors.map(v => ({ id: v.id, catalog: v.catalog })),
   ]
 
   for (const route of routes) {
@@ -249,7 +337,7 @@ export function validateIntegrationRegistry(): RegistryValidationResult {
   }
 
   // Validate usage metadata delegates
-  for (const gateway of getAllGateways()) {
+  for (const gateway of allGateways) {
     if (gateway.usage?.delegateToVendorId && !_vendors.has(gateway.usage.delegateToVendorId)) {
       errors.push(
         `Gateway "${gateway.id}" delegates usage to missing vendor "${gateway.usage.delegateToVendorId}"`,
@@ -262,7 +350,7 @@ export function validateIntegrationRegistry(): RegistryValidationResult {
     }
   }
 
-  for (const vendor of getAllVendors()) {
+  for (const vendor of allVendors) {
     if (vendor.usage?.delegateToVendorId && !_vendors.has(vendor.usage.delegateToVendorId)) {
       errors.push(
         `Vendor "${vendor.id}" delegates usage to missing vendor "${vendor.usage.delegateToVendorId}"`,

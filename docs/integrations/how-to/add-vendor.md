@@ -33,8 +33,10 @@ aggregates models behind a separate endpoint contract.
 6. Add usage metadata if the vendor has real `/usage` support.
    If `/usage` is still unsupported, keep that explicit with
    `usage: { supported: false }`.
-7. Only update compatibility/user-facing surfaces if this vendor should have a
-   preset or legacy alias.
+7. If the vendor should appear in preset-driven `/provider` flows, add a
+   `preset` block on the descriptor.
+8. Run `bun run integrations:generate` so the generated loader and preset
+   manifest stay in sync.
 
 ## Authoring rules
 
@@ -47,7 +49,23 @@ Normal vendor descriptor files should:
 - avoid extra `import type` boilerplate in contributor-facing patterns unless a
   real type import is unavoidable.
 
-Registration is loader-owned in `src/integrations/index.ts`.
+Registration is loader-owned through the generated artifacts consumed by
+`src/integrations/index.ts`.
+
+## Generated loader and preset manifest
+
+Normal vendor onboarding is additive now:
+
+1. add or edit the descriptor file;
+2. add a `preset` block only if the vendor should be user-facing in preset
+   flows;
+3. run `bun run integrations:generate`;
+4. let `src/integrations/generated/integrationArtifacts.generated.ts` feed the
+   loader, compatibility mapping, preset typing, and provider UI metadata.
+
+Preset ordering is derived automatically from preset descriptions using
+standard alphanumeric sorting. `custom` is always pinned last by the generated
+manifest and is not configurable from descriptor files.
 
 ## Example: standard API-key vendor with direct OpenAI-compatible routing
 
@@ -83,6 +101,11 @@ export default defineVendor({
   },
   transportConfig: {
     kind: 'openai-compatible',
+  },
+  preset: {
+    id: 'acme',
+    description: 'Acme AI API',
+    apiKeyEnvVars: ['ACME_API_KEY'],
   },
   catalog,
   usage: {
@@ -205,27 +228,31 @@ export default defineVendor({
 Use this when the vendor really is the route that serves the models. Do not
 move route availability into the shared model index by default.
 
-## Presets, compatibility mappings, and consumer surfaces
+## Presets and user-facing vendor onboarding
 
-Most metadata-driven consumers now read descriptor state automatically, so you
-should not need the old scattered switch edits for a normal vendor addition.
+Most metadata-driven consumers now read generated descriptor-backed state, so a
+normal vendor addition should not require broad switch editing.
 
-Only touch compatibility/user-facing surfaces when the new vendor should appear
-as an explicit preset or legacy route alias.
+Only add `preset` metadata when the vendor should appear as an explicit preset
+or legacy-facing selectable route.
 
-Typical follow-up surfaces:
+```ts
+preset: {
+  id: 'acme',
+  description: 'Acme AI API',
+  apiKeyEnvVars: ['ACME_API_KEY'],
+}
+```
 
-- `src/integrations/compatibility.ts`
-  Add preset-to-route mapping only if you need a legacy/user-facing preset id.
-- `src/integrations/providerUiMetadata.ts`
-  Add UI ordering/summary metadata when the route should appear in provider
-  selection flows.
-- saved-profile or preset-default logic
-  Only if the route needs an explicit onboarding/default profile path rather
-  than simply existing in the registry.
+Then regenerate:
 
-If the route is only an internal descriptor or a route referenced by another
-surface, those follow-up edits may not be necessary.
+```bash
+bun run integrations:generate
+```
+
+That keeps `src/integrations/index.ts`, `src/integrations/compatibility.ts`,
+`src/integrations/providerUiMetadata.ts`, and the generated preset-id type in
+sync without hand-editing them.
 
 ## What not to do
 
@@ -248,5 +275,5 @@ Before calling the vendor guide complete:
 - any direct model-serving route owns the subset of models it actually exposes;
 - the transport family is expressed through `transportConfig.kind`;
 - auth/setup metadata and validation routing are explicit;
-- compatibility/preset surfaces were only updated if the route is meant to be
-  user-facing.
+- user-facing preset participation is expressed through descriptor `preset`
+  metadata and regenerated artifacts rather than handwritten follow-through.

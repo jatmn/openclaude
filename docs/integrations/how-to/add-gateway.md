@@ -32,18 +32,10 @@ Typical gateway cases:
    manual refresh.
 7. Add any required static headers and decide whether users may add custom
    headers.
-8. Only update compatibility/user-facing surfaces if the gateway should be
-   selectable via a preset or legacy alias.
-
-Current branch note:
-
-- descriptor authoring is one-file or two-file, but the loader is still
-  explicitly wired in `src/integrations/index.ts`;
-- if the gateway should appear in preset-driven `/provider` flows, the
-  compatibility/UI follow-through still lives outside the descriptor file for
-  now;
-- treat those extra edits as temporary branch reality until the generated or
-  constrained loader work lands.
+8. If the gateway should appear in preset-driven `/provider` flows, add a
+   `preset` block on the descriptor.
+9. Run `bun run integrations:generate` so the generated loader and preset
+   manifest stay in sync.
 
 ## Authoring rules
 
@@ -57,6 +49,24 @@ Normal gateway examples should:
   `isOpenAICompatible`, or routing-oriented gateway `classification`.
 
 The routing decision belongs to `transportConfig.kind`, not to `category`.
+
+## Generated loader and preset manifest
+
+Normal gateway onboarding is additive now:
+
+1. add or edit the descriptor file;
+2. add a `preset` block only if the route should be user-facing in preset
+   flows;
+3. run `bun run integrations:generate`;
+4. let `src/integrations/generated/integrationArtifacts.generated.ts` feed the
+   loader, compatibility mapping, preset typing, and provider UI metadata.
+
+Preset ordering is not configured manually. The generated manifest sorts
+preset-participating routes by preset description using standard alphanumeric
+sorting, and always pins `custom` to the bottom automatically.
+
+For gateway presets, set `preset.vendorId` so compatibility/profile helpers
+know which vendor contract the gateway belongs to.
 
 ## One-file example: hosted gateway with only first-party models
 
@@ -110,6 +120,12 @@ export default defineGateway({
     openaiShim: {
       maxTokensField: 'max_completion_tokens',
     },
+  },
+  preset: {
+    id: 'acme-hosted',
+    description: 'Acme Hosted gateway',
+    vendorId: 'openai',
+    apiKeyEnvVars: ['ACME_HOSTED_API_KEY'],
   },
   catalog,
   usage: {
@@ -453,22 +469,32 @@ transportConfig: {
 
 Do not use custom headers as a substitute for transport-family selection.
 
-## Presets, compatibility mappings, and consumer surfaces
+## Presets and user-facing gateway onboarding
 
-Most runtime/UI surfaces now consume descriptor-backed metadata, so normal
-gateway additions should not require broad switch editing.
+Most runtime/UI surfaces now consume generated descriptor-backed metadata, so a
+normal gateway addition should not require broad switch editing.
 
-Only update compatibility or user-facing consumer surfaces when the gateway is
-supposed to appear as a preset or explicit selectable route.
+Only add `preset` metadata when the gateway is supposed to appear as a preset
+or explicit selectable route.
 
-Typical follow-up surfaces:
+```ts
+preset: {
+  id: 'acme-hosted',
+  description: 'Acme Hosted gateway',
+  vendorId: 'openai',
+  apiKeyEnvVars: ['ACME_HOSTED_API_KEY'],
+}
+```
 
-- `src/integrations/compatibility.ts`
-  if the gateway needs a preset/legacy mapping;
-- `src/integrations/providerUiMetadata.ts`
-  if the route should appear in provider ordering/summary metadata;
-- saved-profile/default-onboarding flows
-  only when the gateway should be offered as a first-class user-facing preset.
+Then regenerate:
+
+```bash
+bun run integrations:generate
+```
+
+That keeps `src/integrations/index.ts`, `src/integrations/compatibility.ts`,
+`src/integrations/providerUiMetadata.ts`, and the generated preset-id type in
+sync without hand-editing them.
 
 ## What not to do
 
@@ -494,5 +520,5 @@ Before calling the gateway guide complete:
 - any discovery route includes the right cache TTL, refresh mode, and manual
   refresh behavior;
 - custom headers and token-field behavior are explicit where required;
-- compatibility/preset surfaces were only updated when the route is meant to be
-  user-facing.
+- user-facing preset participation is expressed through descriptor `preset`
+  metadata and regenerated artifacts rather than handwritten follow-through.

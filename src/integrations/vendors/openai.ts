@@ -15,6 +15,11 @@ export default defineVendor({
   transportConfig: {
     kind: 'openai-compatible',
   },
+  preset: {
+    id: 'openai',
+    description: 'OpenAI API with API key',
+    apiKeyEnvVars: ['OPENAI_API_KEY'],
+  },
   validation: {
     kind: 'credential-env',
     routing: {

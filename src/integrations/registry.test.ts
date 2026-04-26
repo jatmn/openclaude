@@ -331,4 +331,65 @@ describe('validateIntegrationRegistry', () => {
     const result = validateIntegrationRegistry()
     expect(result.warnings.some(w => w.includes('has no models and no discovery config'))).toBe(false)
   })
+
+  test('catches duplicate preset ids across routes', () => {
+    registerVendor(
+      makeVendor('vendor-one', {
+        preset: {
+          id: 'shared-preset',
+          description: 'Shared preset',
+          apiKeyEnvVars: ['VENDOR_ONE_KEY'],
+        },
+      }),
+    )
+    registerVendor(
+      makeVendor('vendor-two', {
+        preset: {
+          id: 'shared-preset',
+          description: 'Shared preset',
+          apiKeyEnvVars: ['VENDOR_TWO_KEY'],
+        },
+      }),
+    )
+
+    const result = validateIntegrationRegistry()
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(error => error.includes('Duplicate preset id "shared-preset"'))).toBe(true)
+  })
+
+  test('catches non-vendor preset routes without preset.vendorId', () => {
+    registerVendor(makeVendor('openai'))
+    registerGateway(
+      makeGateway('gw-missing-vendor', {
+        defaultBaseUrl: 'https://gateway.example.com/v1',
+        defaultModel: 'gateway-model',
+        preset: {
+          id: 'gateway-preset',
+          description: 'Gateway preset',
+          apiKeyEnvVars: ['GATEWAY_KEY'],
+        },
+      }),
+    )
+
+    const result = validateIntegrationRegistry()
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(error => error.includes('must declare preset.vendorId'))).toBe(true)
+  })
+
+  test('catches preset routes without enough base-url metadata for UI defaults', () => {
+    registerVendor(
+      makeVendor('vendor-no-base', {
+        defaultBaseUrl: '',
+        preset: {
+          id: 'vendor-no-base',
+          description: 'Vendor without base URL',
+          apiKeyEnvVars: ['VENDOR_KEY'],
+        },
+      }),
+    )
+
+    const result = validateIntegrationRegistry()
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(error => error.includes('defaultBaseUrl or preset.fallbackBaseUrl'))).toBe(true)
+  })
 })

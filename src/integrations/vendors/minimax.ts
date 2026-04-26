@@ -15,6 +15,11 @@ export default defineVendor({
   transportConfig: {
     kind: 'openai-compatible',
   },
+  preset: {
+    id: 'minimax',
+    description: 'MiniMax API endpoint',
+    apiKeyEnvVars: ['MINIMAX_API_KEY'],
+  },
   validation: {
     kind: 'credential-env',
     routing: {

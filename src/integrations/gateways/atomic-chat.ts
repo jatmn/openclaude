@@ -22,6 +22,12 @@ export default defineGateway({
       maxTokensField: 'max_tokens',
     },
   },
+  preset: {
+    id: 'atomic-chat',
+    description: 'Local Model Provider',
+    modelEnvVars: ['OPENAI_MODEL'],
+    vendorId: 'openai',
+  },
   catalog: {
     source: 'dynamic',
     discovery: { kind: 'openai-compatible' },

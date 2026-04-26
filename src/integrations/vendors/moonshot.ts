@@ -22,6 +22,13 @@ export default defineVendor({
       removeBodyFields: ['store'],
     },
   },
+  preset: {
+    id: 'moonshotai',
+    description: 'Moonshot AI - API endpoint',
+    label: 'Moonshot AI - API',
+    name: 'Moonshot AI - API',
+    apiKeyEnvVars: ['MOONSHOT_API_KEY'],
+  },
   catalog: {
     source: 'static',
     models: [

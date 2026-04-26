@@ -22,6 +22,12 @@ export default defineGateway({
       maxTokensField: 'max_tokens',
     },
   },
+  preset: {
+    id: 'ollama',
+    description: 'Local or remote Ollama endpoint',
+    modelEnvVars: ['OPENAI_MODEL'],
+    vendorId: 'openai',
+  },
   catalog: {
     source: 'dynamic',
     discovery: { kind: 'ollama' },

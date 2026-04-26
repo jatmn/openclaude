@@ -132,6 +132,40 @@ export interface ValidationRoutingMetadata {
   skipWhenUseOpenAI?: boolean
 }
 
+export interface ProviderPresetMetadata {
+  id: string
+  description: string
+  label?: string
+  name?: string
+  vendorId?: string
+  apiKeyEnvVars?: string[]
+  baseUrlEnvVars?: string[]
+  modelEnvVars?: string[]
+  fallbackBaseUrl?: string
+  fallbackModel?: string
+}
+
+export type ProviderPresetRouteKind =
+  | 'vendor'
+  | 'gateway'
+  | 'anthropic-proxy'
+
+export interface ProviderPresetManifestEntry {
+  preset: string
+  routeKind: ProviderPresetRouteKind
+  routeId: string
+  vendorId: string
+  gatewayId?: string
+  description: string
+  label?: string
+  name?: string
+  apiKeyEnvVars?: readonly string[]
+  baseUrlEnvVars?: readonly string[]
+  modelEnvVars?: readonly string[]
+  fallbackBaseUrl?: string
+  fallbackModel?: string
+}
+
 export type ValidationMetadata =
   | {
       routing?: ValidationRoutingMetadata
@@ -169,6 +203,7 @@ export interface VendorDescriptor {
   catalog?: ModelCatalogConfig
   usage?: UsageMetadata
   validation?: ValidationMetadata
+  preset?: ProviderPresetMetadata
 }
 
 export interface GatewayDescriptor {
@@ -184,6 +219,7 @@ export interface GatewayDescriptor {
   catalog?: ModelCatalogConfig
   usage?: UsageMetadata
   validation?: ValidationMetadata
+  preset?: ProviderPresetMetadata
 }
 
 export interface AnthropicProxyDescriptor {
@@ -206,6 +242,7 @@ export interface AnthropicProxyDescriptor {
   catalog?: ModelCatalogConfig
   usage?: UsageMetadata
   validation?: ValidationMetadata
+  preset?: ProviderPresetMetadata
 }
 
 export interface BrandDescriptor {

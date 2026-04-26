@@ -70,8 +70,8 @@ Examples:
 
 The rule that descriptor files define typed data, while
 `src/integrations/index.ts` is responsible for loading and registering that
-data into the registry. Normal descriptor files should not call registry
-mutation helpers directly.
+data into the registry through generated descriptor artifacts. Normal
+descriptor files should not call registry mutation helpers directly.
 
 ## Metadata
 

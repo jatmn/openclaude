@@ -1,48 +1,49 @@
 // src/integrations/compatibility.ts
-// Maps legacy preset names to descriptor ids.
+// Maps legacy preset names to descriptor-authored route ids.
 // This bridge preserves backward compatibility for stored provider profiles.
 
-import type { ProviderPreset } from '../utils/providerProfiles.js'
+import type { ProviderPresetManifestEntry } from './descriptors.js'
+import {
+  PROVIDER_PRESET_MANIFEST,
+  type ProviderPreset,
+} from './generated/integrationArtifacts.generated.js'
 
 export const PRESET_VENDOR_MAP: Array<{
   preset: ProviderPreset
   vendorId: string
   gatewayId?: string
-}> = [
-  { preset: 'anthropic', vendorId: 'anthropic' },
-  { preset: 'openai', vendorId: 'openai' },
-  { preset: 'ollama', vendorId: 'openai', gatewayId: 'ollama' },
-  { preset: 'kimi-code', vendorId: 'openai', gatewayId: 'kimi-code' },
-  { preset: 'moonshotai', vendorId: 'moonshot' },
-  { preset: 'deepseek', vendorId: 'deepseek' },
-  { preset: 'gemini', vendorId: 'gemini' },
-  { preset: 'mistral', vendorId: 'openai', gatewayId: 'mistral' },
-  { preset: 'together', vendorId: 'openai', gatewayId: 'together' },
-  { preset: 'groq', vendorId: 'openai', gatewayId: 'groq' },
-  { preset: 'azure-openai', vendorId: 'openai', gatewayId: 'azure-openai' },
-  { preset: 'openrouter', vendorId: 'openai', gatewayId: 'openrouter' },
-  { preset: 'lmstudio', vendorId: 'openai', gatewayId: 'lmstudio' },
-  { preset: 'dashscope-cn', vendorId: 'openai', gatewayId: 'dashscope-cn' },
-  { preset: 'dashscope-intl', vendorId: 'openai', gatewayId: 'dashscope-intl' },
-  { preset: 'custom', vendorId: 'openai', gatewayId: 'custom' },
-  { preset: 'nvidia-nim', vendorId: 'openai', gatewayId: 'nvidia-nim' },
-  { preset: 'minimax', vendorId: 'minimax' },
-  { preset: 'zai', vendorId: 'zai' },
-  { preset: 'bankr', vendorId: 'bankr' },
-  { preset: 'atomic-chat', vendorId: 'openai', gatewayId: 'atomic-chat' },
-]
+}> = PROVIDER_PRESET_MANIFEST.map(entry => ({
+  preset: entry.preset,
+  vendorId: entry.vendorId,
+  gatewayId: 'gatewayId' in entry ? entry.gatewayId : undefined,
+}))
 
-export function vendorIdForPreset(preset: ProviderPreset): string {
-  const mapping = PRESET_VENDOR_MAP.find(m => m.preset === preset)
-  if (!mapping) {
+const PRESET_ROUTE_MAP = new Map<ProviderPreset, ProviderPresetManifestEntry>(
+  PROVIDER_PRESET_MANIFEST.map(entry => [
+    entry.preset,
+    entry as ProviderPresetManifestEntry,
+  ] as const),
+)
+
+export function isProviderPreset(value: string): value is ProviderPreset {
+  return PRESET_ROUTE_MAP.has(value as ProviderPreset)
+}
+
+function getPresetEntry(preset: ProviderPreset) {
+  const entry = PRESET_ROUTE_MAP.get(preset)
+  if (!entry) {
     throw new Error(`Unknown preset: ${preset}`)
   }
-  return mapping.vendorId
+
+  return entry
+}
+
+export function vendorIdForPreset(preset: ProviderPreset): string {
+  return getPresetEntry(preset).vendorId
 }
 
 export function gatewayIdForPreset(preset: ProviderPreset): string | undefined {
-  const mapping = PRESET_VENDOR_MAP.find(m => m.preset === preset)
-  return mapping?.gatewayId
+  return getPresetEntry(preset).gatewayId
 }
 
 export function routeForPreset(preset: ProviderPreset): {
@@ -50,13 +51,10 @@ export function routeForPreset(preset: ProviderPreset): {
   gatewayId?: string
   routeId: string
 } {
-  const mapping = PRESET_VENDOR_MAP.find(m => m.preset === preset)
-  if (!mapping) {
-    throw new Error(`Unknown preset: ${preset}`)
-  }
+  const entry = getPresetEntry(preset)
   return {
-    vendorId: mapping.vendorId,
-    gatewayId: mapping.gatewayId,
-    routeId: mapping.gatewayId ?? mapping.vendorId,
+    vendorId: entry.vendorId,
+    gatewayId: entry.gatewayId,
+    routeId: entry.routeId,
   }
 }

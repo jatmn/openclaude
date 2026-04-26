@@ -28,6 +28,12 @@ export default defineGateway({
       removeBodyFields: ['store'],
     },
   },
+  preset: {
+    id: 'mistral',
+    description: 'Mistral OpenAI-compatible endpoint',
+    apiKeyEnvVars: ['MISTRAL_API_KEY'],
+    vendorId: 'openai',
+  },
   validation: {
     kind: 'credential-env',
     routing: {

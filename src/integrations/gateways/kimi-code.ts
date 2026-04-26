@@ -22,6 +22,12 @@ export default defineGateway({
       removeBodyFields: ['store'],
     },
   },
+  preset: {
+    id: 'kimi-code',
+    description: 'Moonshot AI - Kimi Code Subscription endpoint',
+    apiKeyEnvVars: ['KIMI_API_KEY'],
+    vendorId: 'openai',
+  },
   catalog: {
     source: 'static',
     models: [

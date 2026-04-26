@@ -20,10 +20,13 @@ This pack was reviewed against the current implementation surface:
 
 - helper imports come from `src/integrations/define.ts`
 - descriptor field shapes come from `src/integrations/descriptors.ts`
+- generated loader/preset artifacts come from
+  `src/integrations/generated/integrationArtifacts.generated.ts`
 - route/profile compatibility docs reference `src/integrations/profileResolver.ts`
 - route/default/provider label behavior references `src/integrations/routeMetadata.ts`
 - runtime request-shaping notes reference `src/integrations/runtimeMetadata.ts`
-- provider selection UI follow-through references `src/integrations/providerUiMetadata.ts`
+- provider selection UI metadata derives from the generated preset manifest
+  through `src/integrations/providerUiMetadata.ts`
 - discovery caching behavior references `src/integrations/discoveryCache.ts` and
   `src/integrations/discoveryService.ts`
 - `/usage` routing notes reference `src/commands/usage/index.ts` and the

@@ -17,6 +17,12 @@ export default defineGateway({
       supportsUserCustomHeaders: true,
     },
   },
+  preset: {
+    id: 'together',
+    description: 'Together chat/completions endpoint',
+    apiKeyEnvVars: ['TOGETHER_API_KEY'],
+    vendorId: 'openai',
+  },
   catalog: {
     source: 'static',
     models: [

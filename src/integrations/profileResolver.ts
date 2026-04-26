@@ -3,7 +3,7 @@
 // This bridges legacy preset names, vendor ids, gateway ids, and custom strings.
 
 import { getGateway, getVendor } from './registry.js'
-import { routeForPreset } from './compatibility.js'
+import { isProviderPreset, routeForPreset } from './compatibility.js'
 
 export type ResolvedProfileRoute = {
   vendorId: string
@@ -22,10 +22,8 @@ export type ResolvedProfileRoute = {
  */
 export function resolveProfileRoute(provider: string): ResolvedProfileRoute {
   // 1. Try preset mapping
-  try {
-    return routeForPreset(provider as import('../utils/providerProfiles.js').ProviderPreset)
-  } catch {
-    // Not a known preset
+  if (isProviderPreset(provider)) {
+    return routeForPreset(provider)
   }
 
   // 2. Try direct vendor id

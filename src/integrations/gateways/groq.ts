@@ -17,6 +17,12 @@ export default defineGateway({
       supportsUserCustomHeaders: true,
     },
   },
+  preset: {
+    id: 'groq',
+    description: 'Groq OpenAI-compatible endpoint',
+    apiKeyEnvVars: ['GROQ_API_KEY'],
+    vendorId: 'openai',
+  },
   catalog: {
     source: 'static',
     models: [

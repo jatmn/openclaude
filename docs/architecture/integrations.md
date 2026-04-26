@@ -124,7 +124,10 @@ Contributors should not call `registerGateway`, `registerVendor`,
 files. Registration is loader-owned:
 
 - the descriptor file defines typed data;
-- `src/integrations/index.ts` loads and registers that data;
+- `bun run integrations:generate` derives
+  `src/integrations/generated/integrationArtifacts.generated.ts`;
+- `src/integrations/index.ts` loads and registers that generated descriptor
+  inventory;
 - registry helpers expose the loaded data to the rest of the app.
 
 That keeps onboarding additive and prevents descriptor files from turning back
@@ -136,7 +139,8 @@ The repo still has a few intentionally named compatibility bridges because the
 public env/config contract is not descriptor-native yet:
 
 - `src/integrations/compatibility.ts`
-  maps legacy provider preset names onto descriptor-backed route ids;
+  is a thin derived view over the generated preset manifest and maps legacy
+  provider preset names onto descriptor-backed route ids;
 - `src/integrations/profileResolver.ts`
   keeps stored/sanitized provider ids compatible with descriptor routes;
 - `src/utils/model/providers.ts`
@@ -147,6 +151,10 @@ public env/config contract is not descriptor-native yet:
 
 When contributor docs say "compatibility layer," they mean these env/preset/
 legacy-name bridges rather than the descriptor registry itself.
+
+Preset ordering for `/provider` flows is also derived. The generated manifest
+sorts preset-participating routes by preset description using standard
+alphanumeric sorting, and always keeps `custom` at the bottom automatically.
 
 ## Current constraints
 

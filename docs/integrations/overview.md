@@ -156,7 +156,15 @@ That means the normal contributor workflow is:
 4. let registry consumers read the loaded descriptor state.
 
 The loader may still be manually enumerated in some places today, but that is a
-loader concern, not a descriptor-file concern.
+generated-artifact concern, not a descriptor-file concern.
+
+Normal contributor flow for new preset-participating routes is:
+
+1. add or edit the descriptor file;
+2. add `preset` metadata only when the route should be user-facing;
+3. run `bun run integrations:generate`;
+4. let the generated manifest feed the loader, compatibility mapping, preset
+   typing, and provider UI metadata.
 
 ## Compatibility Layer
 
@@ -166,7 +174,7 @@ exists for older env/config/public-callers.
 Important compatibility surfaces include:
 
 - `src/integrations/compatibility.ts`
-  legacy preset name to descriptor-route mapping;
+  derived legacy preset name to descriptor-route mapping;
 - `src/integrations/profileResolver.ts`
   stored provider/profile id resolution;
 - `src/utils/model/providers.ts`
@@ -176,3 +184,6 @@ Important compatibility surfaces include:
 
 Contributor docs should describe these as compatibility bridges, not as the
 primary architecture.
+
+Preset ordering is derived from preset descriptions with standard alphanumeric
+sorting, and `custom` is always pinned last automatically.

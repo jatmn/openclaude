@@ -15,6 +15,12 @@ export default defineVendor({
   transportConfig: {
     kind: 'openai-compatible',
   },
+  preset: {
+    id: 'bankr',
+    description: 'Bankr LLM Gateway (OpenAI-compatible)',
+    apiKeyEnvVars: ['BNKR_API_KEY'],
+    modelEnvVars: ['BANKR_MODEL', 'OPENAI_MODEL'],
+  },
   validation: {
     kind: 'credential-env',
     routing: {

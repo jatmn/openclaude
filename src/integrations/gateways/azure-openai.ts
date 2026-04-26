@@ -17,6 +17,12 @@ export default defineGateway({
       supportsUserCustomHeaders: true,
     },
   },
+  preset: {
+    id: 'azure-openai',
+    description: 'Azure OpenAI endpoint (model=deployment name)',
+    apiKeyEnvVars: ['AZURE_OPENAI_API_KEY'],
+    vendorId: 'openai',
+  },
   catalog: {
     source: 'static',
     models: [

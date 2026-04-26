@@ -17,6 +17,12 @@ export default defineGateway({
       supportsUserCustomHeaders: true,
     },
   },
+  preset: {
+    id: 'dashscope-cn',
+    description: 'Alibaba DashScope China endpoint',
+    apiKeyEnvVars: ['DASHSCOPE_API_KEY'],
+    vendorId: 'openai',
+  },
   catalog: {
     source: 'static',
     models: [

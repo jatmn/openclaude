@@ -27,30 +27,10 @@ import {
   getProviderPresetUiMetadata,
   resolveProfileRoute,
   type ResolvedProfileRoute,
+  type ProviderPreset,
 } from '../integrations/index.js'
 
-export type ProviderPreset =
-  | 'anthropic'
-  | 'ollama'
-  | 'openai'
-  | 'kimi-code'
-  | 'moonshotai'
-  | 'deepseek'
-  | 'gemini'
-  | 'mistral'
-  | 'together'
-  | 'groq'
-  | 'azure-openai'
-  | 'openrouter'
-  | 'lmstudio'
-  | 'dashscope-cn'
-  | 'dashscope-intl'
-  | 'custom'
-  | 'nvidia-nim'
-  | 'minimax'
-  | 'zai'
-  | 'bankr'
-  | 'atomic-chat'
+export type { ProviderPreset } from '../integrations/index.js'
 
 export type ProviderProfileInput = {
   provider?: ProviderProfile['provider']

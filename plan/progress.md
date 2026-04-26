@@ -1,8 +1,8 @@
 # OpenClaude Descriptor Migration — Progress Tracker
 
 **Master Plan**: [`plan/cheeky-cooking-moon.md`](./cheeky-cooking-moon.md)
-**Current Phase**: Phase 4E — Reference Sample Pack and Docs Review (complete on branch; follow-up hard requirement opened for 3E)
-**Next Planned Phase**: Phase 3E — Descriptor-Native Onboarding Closure
+**Current Phase**: Phase 3E — Descriptor-Native Onboarding Closure
+**Next Planned Phase**: None — Phase 3E closure and related docs cleanup landed on branch
 **Goal**: Establish the descriptor system without regressing current behavior. Get all metadata into one place before deeper runtime migration starts.
 **Last Updated**: 2026-04-26 00:10
 
@@ -153,11 +153,9 @@ Notes:
 - Repo-wide `bun run typecheck` is still red in unrelated existing areas such as `src/__tests__/providerCounts.test.ts`, `src/assistant/sessionHistory.ts`, `src/bootstrap/state.ts`, and multiple `src/bridge/` and `src/cli/` files; that baseline issue is not a new Phase 1 blocker introduced by this branch.
 - Full review follow-up on 2026-04-25 20:01 fixed skipped provider-surface updates in `src/utils/status.tsx`, `src/utils/swarm/teammateModel.ts`, `src/utils/model/configs.ts`, and `src/utils/model/deprecation.ts`, with new focused tests in `src/utils/status.test.ts` and `src/utils/swarm/teammateModel.test.ts`.
 - On 2026-04-25, `1F` was formally closed with the repo-wide typecheck requirement waived as pre-existing repo debt outside the scoped descriptor-migration work on `cheeky-cooking-moon`.
-- Follow-up review on 2026-04-26 clarified that descriptor authoring is now
-  centralized, but fully additive one-file gateway onboarding is still not the
-  branch reality because `src/integrations/index.ts` loader wiring and some
-  preset/UI compatibility surfaces remain manual. The docs now call that out
-  explicitly instead of implying the end-state loader automation already landed.
+- Follow-up review on 2026-04-26 identified additive onboarding gaps around
+  loader wiring and preset/UI metadata. Those gaps were closed later the same
+  day by the Phase 3E generated-artifact pass.
 
 ---
 
@@ -582,24 +580,26 @@ Notes:
 
 ## Phase 3E: Descriptor-Native Onboarding Closure
 
-**Status**: `PLANNED`
+**Status**: `COMPLETE`
 
-- [ ] Choose and implement the sustainable loader strategy: constrained descriptor-folder discovery or generated loader artifacts
-- [ ] Remove the need to hand-edit `src/integrations/index.ts` for normal descriptor-backed routes
-- [ ] Define descriptor-owned preset metadata for routes that should appear in preset-driven `/provider` flows
-- [ ] Derive `routeForPreset()` and related compatibility helpers from descriptor-authored preset metadata or a generated manifest derived from it
-- [ ] Derive provider preset ordering, descriptions, display labels/names, and env-var override metadata from the same descriptor-authored source
-- [ ] Eliminate or generate any separate handwritten preset-id union so preset typing cannot drift from descriptor reality
-- [ ] Add validation for duplicate preset ids, incomplete preset metadata, and descriptor routes that opt into presets without sufficient UI/config data
-- [ ] Add tests that prove a representative preset-participating gateway can be added with descriptor file changes only, or descriptor file changes plus regeneration of derived artifacts, with no hand-edits to unrelated consumer tables
-- [ ] Add equivalent tests for a representative direct model-serving vendor
-- [ ] Keep an explicit opt-out path for descriptor routes that should not appear as presets
+- [x] Choose and implement the sustainable loader strategy: constrained descriptor-folder discovery or generated loader artifacts
+- [x] Remove the need to hand-edit `src/integrations/index.ts` for normal descriptor-backed routes
+- [x] Define descriptor-owned preset metadata for routes that should appear in preset-driven `/provider` flows
+- [x] Derive `routeForPreset()` and related compatibility helpers from descriptor-authored preset metadata or a generated manifest derived from it
+- [x] Derive provider preset ordering, descriptions, display labels/names, and env-var override metadata from the same descriptor-authored source
+- [x] Eliminate or generate any separate handwritten preset-id union so preset typing cannot drift from descriptor reality
+- [x] Add validation for duplicate preset ids, incomplete preset metadata, and descriptor routes that opt into presets without sufficient UI/config data
+- [x] Add tests that prove a representative preset-participating gateway can be added with descriptor file changes only, or descriptor file changes plus regeneration of derived artifacts, with no hand-edits to unrelated consumer tables
+- [x] Add equivalent tests for a representative direct model-serving vendor
+- [x] Keep an explicit opt-out path for descriptor routes that should not appear as presets
 
 Notes:
 - Added on 2026-04-26 after follow-up review confirmed the remaining additive-onboarding gap is structural, not just documentation wording.
-- Current branch reality is still accurate as documented in `docs/integrations/how-to/add-gateway.md`: descriptor files exist, but `src/integrations/index.ts`, `src/integrations/compatibility.ts`, `src/integrations/providerUiMetadata.ts`, and the handwritten `ProviderPreset` union still require coordinated follow-through for some routes.
-- This packet is now the hard-requirement closure work for `cheeky-cooking-moon`; the branch should not claim fully additive preset-participating gateway onboarding until these checkboxes are green.
-- Once `3E` lands, Phase 4 gateway/vendor docs need a cleanup pass so they stop documenting manual loader/preset/UI edits as acceptable normal workflow.
+- Completed on 2026-04-26 with a generated-artifact workflow centered on `scripts/generate-integrations-artifacts.ts` and `src/integrations/generated/integrationArtifacts.generated.ts`.
+- `src/integrations/index.ts`, `src/integrations/compatibility.ts`, `src/integrations/providerUiMetadata.ts`, and the preset-id type now derive from generated artifacts rather than separate handwritten tables.
+- Preset participation is descriptor-owned via `preset` metadata, ordering is generated from preset descriptions with standard alphanumeric sorting, and `custom` is pinned last automatically.
+- Focused verification is green for registry/compatibility/profile/provider flows, plus generator tests that prove representative gateway and direct-vendor onboarding works from descriptor changes plus regeneration only.
+- Phase 4 gateway/vendor docs were cleaned up in the same pass so they no longer present manual loader/preset/UI edits as the normal workflow.
 
 ---
 
@@ -609,7 +609,7 @@ Notes:
 - [x] **3B merged** — type/naming consolidation landed separately from runtime behavior changes
 - [x] **3C merged** — env-shaping consolidation landed after targeted regression tests
 - [x] **3D complete** — final audit/doc pass is green and Phase 4 can begin
-- [ ] **3E pending** — additive onboarding is not considered closed until loader/preset metadata are descriptor-native
+- [x] **3E complete** — additive onboarding is descriptor-native through generated artifacts and descriptor-owned preset metadata
 
 Notes:
 - As with the earlier checkpoints, "merged" here means landed on `cheeky-cooking-moon`, not merged out to another branch.
@@ -750,7 +750,7 @@ Notes:
   - `docs/integrations/how-to/add-vendor.md` — vendor onboarding rules plus direct OpenAI-compatible, custom-static-header, and first-party-catalog examples
   - `docs/integrations/how-to/add-gateway.md` — one-file and two-file gateway patterns, transport-family examples, discovery-cache guidance, token-field guidance, and compatibility-surface follow-through
 - The new gateway guide explicitly keeps `transportConfig.kind` as the routing contract and treats `category` as display/grouping metadata only.
-- Follow-up review on 2026-04-26 intentionally kept the guide honest about current branch reality, but that note is now temporary debt tracked by `3E` rather than acceptable end state.
+- Follow-up review on 2026-04-26 initially kept the guide honest about branch-local manual follow-through, and the later Phase 3E pass removed that temporary debt by moving loader/preset/UI metadata onto generated descriptor artifacts.
 
 ---
 

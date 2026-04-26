@@ -15,6 +15,13 @@ export default defineVendor({
   transportConfig: {
     kind: 'anthropic-native',
   },
+  preset: {
+    id: 'anthropic',
+    description: 'Native Claude API (x-api-key auth)',
+    apiKeyEnvVars: ['ANTHROPIC_API_KEY'],
+    baseUrlEnvVars: ['ANTHROPIC_BASE_URL'],
+    modelEnvVars: ['ANTHROPIC_MODEL'],
+  },
   isFirstParty: true,
   usage: { supported: true },
 })

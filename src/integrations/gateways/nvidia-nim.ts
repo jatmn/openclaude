@@ -17,6 +17,12 @@ export default defineGateway({
       supportsUserCustomHeaders: true,
     },
   },
+  preset: {
+    id: 'nvidia-nim',
+    description: 'NVIDIA NIM endpoint',
+    apiKeyEnvVars: ['NVIDIA_API_KEY'],
+    vendorId: 'openai',
+  },
   validation: {
     kind: 'credential-env',
     credentialEnvVars: ['NVIDIA_API_KEY'],

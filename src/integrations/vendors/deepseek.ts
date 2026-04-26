@@ -23,6 +23,11 @@ export default defineVendor({
       removeBodyFields: ['store'],
     },
   },
+  preset: {
+    id: 'deepseek',
+    description: 'DeepSeek OpenAI-compatible endpoint',
+    apiKeyEnvVars: ['DEEPSEEK_API_KEY'],
+  },
   catalog: {
     source: 'static',
     models: [

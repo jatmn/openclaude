@@ -18,6 +18,11 @@ export default defineVendor({
       removeBodyFields: ['store'],
     },
   },
+  preset: {
+    id: 'gemini',
+    description: 'Gemini OpenAI-compatible endpoint',
+    apiKeyEnvVars: ['GEMINI_API_KEY'],
+  },
   validation: {
     kind: 'gemini-credential',
     routing: {

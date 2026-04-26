@@ -23,6 +23,14 @@ export default defineVendor({
       removeBodyFields: ['store'],
     },
   },
+  preset: {
+    id: 'zai',
+    description: 'Z.AI GLM coding subscription endpoint',
+    label: 'Z.AI - GLM Coding Plan',
+    name: 'Z.AI - GLM Coding Plan',
+    apiKeyEnvVars: ['OPENAI_API_KEY'],
+    modelEnvVars: ['OPENAI_MODEL'],
+  },
   validation: {
     kind: 'credential-env',
     routing: {

@@ -11,6 +11,9 @@ export default defineGateway({
     authMode: 'api-key',
     credentialEnvVars: ['OPENROUTER_API_KEY'],
   },
+  startup: {
+    probeReadiness: 'openai-compatible-models',
+  },
   transportConfig: {
     kind: 'openai-compatible',
     openaiShim: {

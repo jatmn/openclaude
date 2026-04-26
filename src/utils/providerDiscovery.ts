@@ -104,6 +104,16 @@ async function fetchOllamaModelsProbe(
   }
 }
 
+export async function probeOllamaModelCatalog(options?: {
+  baseUrl?: string
+  timeoutMs?: number
+}): Promise<{
+  reachable: boolean
+  models: OllamaModelDescriptor[]
+}> {
+  return fetchOllamaModelsProbe(options?.baseUrl, options?.timeoutMs ?? 5000)
+}
+
 export function getOllamaApiBaseUrl(baseUrl?: string): string {
   const parsed = new URL(
     baseUrl || process.env.OLLAMA_BASE_URL || DEFAULT_OLLAMA_BASE_URL,

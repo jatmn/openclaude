@@ -4,7 +4,7 @@
 **Current Phase**: Phase 1 — Foundation and Parity
 **Next Planned Phase**: Phase 2 — Runtime Metadata Adoption
 **Goal**: Establish the descriptor system without regressing current behavior. Get all metadata into one place before deeper runtime migration starts.
-**Last Updated**: 2026-04-25 17:03
+**Last Updated**: 2026-04-25 17:28
 
 ---
 
@@ -246,24 +246,39 @@ Notes:
 
 ## Phase 2B: Discovery and Readiness Metadata Migration
 
-**Status**: `BLOCKED`
+**Status**: `COMPLETE`
 
-- [ ] Map current readiness flows for Ollama, Atomic Chat, and other local/openai-compatible providers
-- [ ] Define which probe behaviors can be declared as metadata
-- [ ] Keep actual probe execution in code, but drive probe selection from descriptors
-- [ ] Add a model discovery service that can run declarative `catalog.discovery` configs
-- [ ] Consume `discoveryCache.ts` in the discovery service
-- [ ] Wire `setCachedModels` / `getCachedModels` into declarative `catalog.discovery` execution
-- [ ] Implement deterministic hybrid merge behavior where curated descriptor entries override discovered metadata
-- [ ] Implement built-in `discovery.kind: 'openai-compatible'` support for standard `/v1/models` discovery
-- [ ] Ensure OpenAI-compatible discovery uses the route's base URL and descriptor/profile-resolved headers automatically
-- [ ] Reserve custom discovery functions for non-standard response shapes only
-- [ ] Verify local provider labels still render correctly
-- [ ] Verify readiness messages still render correctly
+- [x] Map current readiness flows for Ollama, Atomic Chat, and other local/openai-compatible providers
+- [x] Define which probe behaviors can be declared as metadata
+- [x] Keep actual probe execution in code, but drive probe selection from descriptors
+- [x] Add a model discovery service that can run declarative `catalog.discovery` configs
+- [x] Consume `discoveryCache.ts` in the discovery service
+- [x] Wire `setCachedModels` / `getCachedModels` into declarative `catalog.discovery` execution
+- [x] Implement deterministic hybrid merge behavior where curated descriptor entries override discovered metadata
+- [x] Implement built-in `discovery.kind: 'openai-compatible'` support for standard `/v1/models` discovery
+- [x] Ensure OpenAI-compatible discovery uses the route's base URL and descriptor/profile-resolved headers automatically
+- [x] Reserve custom discovery functions for non-standard response shapes only
+- [x] Verify local provider labels still render correctly
+- [x] Verify readiness messages still render correctly
 
 Notes:
-- Unblock after `2A.5` provides the cache service and `2A` clarifies the descriptor-backed metadata boundaries.
-- Start with Ollama and Atomic Chat first so local readiness flows stay easy to compare with current behavior.
+- `2A` and `2A.5` are complete, so this packet is now active on-branch.
+- Completed 2B work in branch:
+  - `StartupMetadata.probeReadiness` is now a typed descriptor field (`ReadinessProbeKind`) instead of a free-form string.
+  - `ollama`, `atomic-chat`, `lmstudio`, and `openrouter` descriptors now declare readiness/discovery metadata directly.
+  - `src/integrations/discoveryService.ts` now runs descriptor-backed discovery, caches results through `discoveryCache.ts`, preserves stale fallback, and merges curated hybrid entries ahead of discovered duplicates.
+  - `src/utils/providerDiscovery.ts` now exports `probeOllamaModelCatalog()` so the service can distinguish unreachable Ollama from reachable-but-empty Ollama catalogs.
+  - `src/components/ProviderManager.tsx` and `src/commands/provider/provider.tsx` now call `probeRouteReadiness()` instead of reaching directly into provider-specific probe helpers.
+  - `src/services/api/bootstrap.ts` now uses `discoverModelsForRoute()` for recognized descriptor-backed local routes and falls back to the legacy generic `/models` fetch for custom local endpoints.
+  - `resolveDiscoveryRouteIdFromBaseUrl()` now maps known descriptor routes by default base URL and local-route heuristics so bootstrap can share the cached discovery path with runtime callers.
+- Focused verification completed on 2026-04-25:
+  - `bun test src/integrations/discoveryService.test.ts`
+  - `bun test src/components/ProviderManager.test.tsx`
+  - `bun test src/commands/provider/provider.test.tsx`
+  - `bun test src/utils/providerDiscovery.test.ts src/integrations/registry.test.ts src/integrations/index.test.ts`
+  - filtered `bun run typecheck` for `src/integrations/discoveryService.ts`, `src/integrations/discoveryService.test.ts`, `src/components/ProviderManager.tsx`, `src/components/ProviderManager.test.tsx`, `src/commands/provider/provider.tsx`, `src/services/api/bootstrap.ts`, and `src/utils/providerProfile.ts` returned `FILTER_CLEAN`
+- Verification note:
+  - the focused `/provider` verification surfaced an env-precedence regression in `applySavedProfileToCurrentSession()`; fixing it keeps explicit provider env selections authoritative while saved-profile activation is attempted.
 
 ---
 

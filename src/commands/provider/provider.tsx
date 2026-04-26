@@ -13,6 +13,7 @@ import { LoadingState } from '../../components/design-system/LoadingState.js'
 import { useCodexOAuthFlow } from '../../components/useCodexOAuthFlow.js'
 import { useTerminalSize } from '../../hooks/useTerminalSize.js'
 import { Box, Text } from '../../ink.js'
+import { probeRouteReadiness } from '../../integrations/discoveryService.js'
 import {
   type CodexOAuthTokens,
 } from '../../services/api/codexOAuth.js'
@@ -66,7 +67,6 @@ import {
 import {
   getOllamaChatBaseUrl,
   getLocalOpenAICompatibleProviderLabel,
-  probeOllamaGenerationReadiness,
   type OllamaGenerationReadiness,
 } from '../../utils/providerDiscovery.js'
 
@@ -207,10 +207,10 @@ export function getProviderWizardDefaults(
     sanitizeProviderConfigValue(processEnv.GEMINI_MODEL, secretSource) ||
     DEFAULT_GEMINI_MODEL
   const safeMistralModel =
-    sanitizeProviderConfigValue(processEnv.MISTRAL_MODEL, processEnv) ||
+    sanitizeProviderConfigValue(processEnv.MISTRAL_MODEL, secretSource) ||
     DEFAULT_MISTRAL_MODEL
   const safeMistralBaseUrl =
-    sanitizeProviderConfigValue(processEnv.MISTRAL_BASE_URL, processEnv) ||
+    sanitizeProviderConfigValue(processEnv.MISTRAL_BASE_URL, secretSource) ||
     DEFAULT_MISTRAL_BASE_URL
 
   return {
@@ -763,7 +763,17 @@ function AutoRecommendationStep({
     void (async () => {
       const defaultModel = getGoalDefaultOpenAIModel(goal)
       try {
-        const readiness = await probeOllamaGenerationReadiness()
+        const readiness = await probeRouteReadiness('ollama')
+        if (!readiness) {
+          if (!cancelled) {
+            setStatus({
+              state: 'error',
+              message: 'Ollama readiness probe is not configured for this route.',
+            })
+          }
+          return
+        }
+
         if (readiness.state !== 'ready') {
           if (!cancelled) {
             setStatus({
@@ -926,7 +936,17 @@ function OllamaModelStep({
     let cancelled = false
 
     void (async () => {
-      const readiness = await probeOllamaGenerationReadiness()
+      const readiness = await probeRouteReadiness('ollama')
+      if (!readiness) {
+        if (!cancelled) {
+          setStatus({
+            state: 'unavailable',
+            message: 'Ollama readiness probe is not configured for this route.',
+          })
+        }
+        return
+      }
+
       if (readiness.state !== 'ready') {
         if (!cancelled) {
           setStatus({

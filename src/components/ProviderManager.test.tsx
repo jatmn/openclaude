@@ -163,22 +163,35 @@ function mockProviderProfilesModule(options?: {
     applyActiveProviderProfileFromConfig: () => {},
     deleteProviderProfile: () => ({ removed: false, activeProfileId: null }),
     getActiveProviderProfile: options?.getActiveProviderProfile ?? (() => null),
-    getProviderPresetDefaults: (preset: string) =>
-      preset === 'ollama'
-        ? {
-            provider: 'openai',
-            name: 'Ollama',
-            baseUrl: 'http://localhost:11434/v1',
-            model: 'llama3.1:8b',
-            apiKey: '',
-          }
-        : {
-            provider: 'openai',
-            name: 'Mock provider',
-            baseUrl: 'http://localhost:11434/v1',
-            model: 'mock-model',
-            apiKey: '',
-          },
+    getProviderPresetDefaults: (preset: string) => {
+      if (preset === 'ollama') {
+        return {
+          provider: 'openai',
+          name: 'Ollama',
+          baseUrl: 'http://localhost:11434/v1',
+          model: 'llama3.1:8b',
+          apiKey: '',
+        }
+      }
+
+      if (preset === 'atomic-chat') {
+        return {
+          provider: 'openai',
+          name: 'Atomic Chat',
+          baseUrl: 'http://127.0.0.1:1337/v1',
+          model: 'Qwen3_5-4B_Q4_K_M',
+          apiKey: '',
+        }
+      }
+
+      return {
+        provider: 'openai',
+        name: 'Mock provider',
+        baseUrl: 'http://localhost:11434/v1',
+        model: 'mock-model',
+        apiKey: '',
+      }
+    },
     getProviderProfiles: options?.getProviderProfiles ?? (() => []),
     setActiveProviderProfile: options?.setActiveProviderProfile ?? (() => null),
     updateProviderProfile: options?.updateProviderProfile ?? (() => null),
@@ -189,11 +202,15 @@ function mockProviderManagerDependencies(
   githubSyncRead: () => string | undefined,
   githubAsyncRead: () => Promise<string | undefined>,
   options?: {
-    addProviderProfile?: (...args: unknown[]) => unknown
-    applySavedProfileToCurrentSession?: (...args: unknown[]) => Promise<string | null>
+    addProviderProfile?: (...args: any[]) => unknown
+    applySavedProfileToCurrentSession?: (...args: any[]) => Promise<string | null>
     clearCodexCredentials?: () => { success: boolean; warning?: string }
     getActiveProviderProfile?: () => unknown
     getProviderProfiles?: () => unknown[]
+    probeRouteReadiness?: (
+      routeId: string,
+      options?: { baseUrl?: string; model?: string; timeoutMs?: number; apiKey?: string },
+    ) => Promise<unknown>
     probeOllamaGenerationReadiness?: () => Promise<{
       state: 'ready' | 'unreachable' | 'no_models' | 'generation_failed'
       models: Array<
@@ -211,8 +228,8 @@ function mockProviderManagerDependencies(
     }>
     codexSyncRead?: () => unknown
     codexAsyncRead?: () => Promise<unknown>
-    updateProviderProfile?: (...args: unknown[]) => unknown
-    setActiveProviderProfile?: (...args: unknown[]) => unknown
+    updateProviderProfile?: (...args: any[]) => unknown
+    setActiveProviderProfile?: (...args: any[]) => unknown
     useCodexOAuthFlow?: (options: {
       onAuthenticated: (tokens: {
         accessToken: string
@@ -239,12 +256,29 @@ function mockProviderManagerDependencies(
   })
 
   mock.module('../utils/providerDiscovery.js', () => ({
-    probeOllamaGenerationReadiness:
-      options?.probeOllamaGenerationReadiness ??
-      (async () => ({
-        state: 'unreachable' as const,
-        models: [],
-      })),
+  }))
+
+  mock.module('../integrations/discoveryService.js', () => ({
+    probeRouteReadiness:
+      options?.probeRouteReadiness ??
+      (async (routeId: string) => {
+        if (routeId === 'ollama') {
+          return (
+            options?.probeOllamaGenerationReadiness?.() ?? {
+              state: 'unreachable' as const,
+              models: [],
+            }
+          )
+        }
+
+        if (routeId === 'atomic-chat') {
+          return {
+            state: 'unreachable' as const,
+          }
+        }
+
+        return null
+      }),
   }))
 
   mock.module('../utils/githubModelsCredentials.js', () => ({
@@ -574,6 +608,43 @@ test('ProviderManager first-run Ollama preset auto-detects installed models', as
       action: 'saved',
       message: 'Provider configured: Ollama',
     }),
+  )
+
+  await mounted.dispose()
+})
+
+test('ProviderManager preserves the Ollama readiness message when the probe is unreachable', async () => {
+  const onDone = mock(() => {})
+
+  mockProviderManagerDependencies(
+    () => undefined,
+    async () => undefined,
+  )
+
+  const nonce = `${Date.now()}-${Math.random()}`
+  const { ProviderManager } = await import(`./ProviderManager.js?ts=${nonce}`)
+  const mounted = await mountProviderManager(ProviderManager, {
+    mode: 'first-run',
+    onDone,
+  })
+
+  await waitForFrameOutput(
+    mounted.getOutput,
+    frame => frame.includes('Set up provider'),
+  )
+
+  await navigateToPreset(mounted.stdin, 'Ollama')
+  mounted.stdin.write('\r')
+
+  const messageFrame = await waitForFrameOutput(
+    mounted.getOutput,
+    frame =>
+      frame.includes('Could not reach Ollama at http://localhost:11434/v1.') &&
+      frame.includes('enter the endpoint manually'),
+  )
+
+  expect(messageFrame).toContain(
+    'Could not reach Ollama at http://localhost:11434/v1. Start Ollama first, or enter the endpoint manually.',
   )
 
   await mounted.dispose()

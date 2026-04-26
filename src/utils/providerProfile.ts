@@ -30,7 +30,7 @@ export {
   sanitizeApiKey,
   sanitizeProviderConfigValue,
 } from './providerSecrets.js'
-import { isEnvTruthy } from './envUtils.ts'
+import { isEnvTruthy } from './envUtils.js'
 
 export const PROFILE_FILE_NAME = '.openclaude-profile.json'
 export const DEFAULT_GEMINI_BASE_URL =
@@ -1216,6 +1216,15 @@ export async function applySavedProfileToCurrentSession(options: {
   processEnv?: NodeJS.ProcessEnv
 }): Promise<string | null> {
   const processEnv = options.processEnv ?? process.env
+  const explicitProviderFlags = {
+    CLAUDE_CODE_USE_OPENAI: processEnv.CLAUDE_CODE_USE_OPENAI,
+    CLAUDE_CODE_USE_GITHUB: processEnv.CLAUDE_CODE_USE_GITHUB,
+    CLAUDE_CODE_USE_GEMINI: processEnv.CLAUDE_CODE_USE_GEMINI,
+    CLAUDE_CODE_USE_MISTRAL: processEnv.CLAUDE_CODE_USE_MISTRAL,
+    CLAUDE_CODE_USE_BEDROCK: processEnv.CLAUDE_CODE_USE_BEDROCK,
+    CLAUDE_CODE_USE_VERTEX: processEnv.CLAUDE_CODE_USE_VERTEX,
+    CLAUDE_CODE_USE_FOUNDRY: processEnv.CLAUDE_CODE_USE_FOUNDRY,
+  }
   const baseEnv = { ...processEnv }
   const isCodexOAuthProfile =
     options.profileFile.profile === 'codex' &&
@@ -1230,6 +1239,13 @@ export async function applySavedProfileToCurrentSession(options: {
   delete baseEnv.CLAUDE_CODE_USE_FOUNDRY
   delete baseEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED
   delete baseEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID
+
+  for (const [envKey, value] of Object.entries(explicitProviderFlags)) {
+    if (value) {
+      baseEnv[envKey] = value
+    }
+  }
+
   if (isCodexOAuthProfile) {
     delete baseEnv.CODEX_API_KEY
     delete baseEnv.CODEX_ACCOUNT_ID

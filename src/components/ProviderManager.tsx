@@ -36,9 +36,8 @@ import {
   readGithubModelsToken,
   readGithubModelsTokenAsync,
 } from '../utils/githubModelsCredentials.js'
+import { probeRouteReadiness } from '../integrations/discoveryService.js'
 import {
-  probeAtomicChatReadiness,
-  probeOllamaGenerationReadiness,
   type AtomicChatReadiness,
   type OllamaGenerationReadiness,
 } from '../utils/providerDiscovery.js'
@@ -314,7 +313,7 @@ function CodexOAuthSetup({
   }, persistCredentials: (options?: { profileId?: string }) => void) => {
     await onConfigured(tokens, persistCredentials)
   }, [onConfigured])
-  useKeybinding('confirm:no', onBack, [onBack])
+  useKeybinding('confirm:no', onBack)
 
   const status = useCodexOAuthFlow({
     onAuthenticated: handleAuthenticated,
@@ -581,9 +580,19 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
     setOllamaSelection({ state: 'loading' })
 
     void (async () => {
-      const readiness = await probeOllamaGenerationReadiness({
+      const readiness = await probeRouteReadiness('ollama', {
         baseUrl: draft.baseUrl,
       })
+      if (!readiness) {
+        if (!cancelled) {
+          setOllamaSelection({
+            state: 'unavailable',
+            message: `Could not load the Ollama readiness probe for ${redactUrlForDisplay(draft.baseUrl)}. Enter the endpoint manually.`,
+          })
+        }
+        return
+      }
+
       if (readiness.state !== 'ready') {
         if (!cancelled) {
           setOllamaSelection({
@@ -623,9 +632,19 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
     setAtomicChatSelection({ state: 'loading' })
 
     void (async () => {
-      const readiness = await probeAtomicChatReadiness({
+      const readiness = await probeRouteReadiness('atomic-chat', {
         baseUrl: draft.baseUrl,
       })
+      if (!readiness) {
+        if (!cancelled) {
+          setAtomicChatSelection({
+            state: 'unavailable',
+            message: `Could not load the Atomic Chat readiness probe for ${redactUrlForDisplay(draft.baseUrl)}. Enter the endpoint manually.`,
+          })
+        }
+        return
+      }
+
       if (readiness.state !== 'ready') {
         if (!cancelled) {
           setAtomicChatSelection({

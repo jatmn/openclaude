@@ -1,6 +1,11 @@
 import axios from 'axios'
 import isEqual from 'lodash-es/isEqual.js'
 import {
+  discoverModelsForRoute,
+  resolveDiscoveryRouteIdFromBaseUrl,
+} from '../../integrations/discoveryService.js'
+import { getGateway, getVendor } from '../../integrations/index.js'
+import {
   getAnthropicApiKey,
   getClaudeAIOAuthTokens,
   hasProfileScope,
@@ -142,17 +147,31 @@ async function fetchLocalOpenAIModelOptions(): Promise<BootstrapCachePayload | n
   }
 
   const { baseUrl } = resolveProviderRequest()
-  const models = await listOpenAICompatibleModels({
-    baseUrl,
-    apiKey: process.env.OPENAI_API_KEY,
-  })
+  const routeId = resolveDiscoveryRouteIdFromBaseUrl(baseUrl)
+  const routeLabel =
+    (routeId
+      ? getGateway(routeId)?.label ?? getVendor(routeId)?.label
+      : undefined) ?? getLocalOpenAICompatibleProviderLabel(baseUrl)
+
+  const discovered = routeId
+    ? await discoverModelsForRoute(routeId, {
+        baseUrl,
+        apiKey: process.env.OPENAI_API_KEY,
+      })
+    : null
+  const models =
+    (discovered && discovered.source !== 'error'
+      ? discovered.models.map(model => model.apiName)
+      : null) ??
+    (await listOpenAICompatibleModels({
+      baseUrl,
+      apiKey: process.env.OPENAI_API_KEY,
+    }))
 
   if (models === null) {
     logForDebugging('[Bootstrap] Local OpenAI model discovery failed')
     return null
   }
-
-  const providerLabel = getLocalOpenAICompatibleProviderLabel(baseUrl)
 
   return {
     clientData: getGlobalConfig().clientDataCache ?? null,
@@ -160,7 +179,7 @@ async function fetchLocalOpenAIModelOptions(): Promise<BootstrapCachePayload | n
     additionalModelOptions: models.map(model => ({
       value: model,
       label: model,
-      description: `Detected from ${providerLabel}`,
+      description: `Detected from ${routeLabel}`,
     })),
   }
 }

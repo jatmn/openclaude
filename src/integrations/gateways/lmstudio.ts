@@ -10,6 +10,10 @@ export default defineGateway({
     requiresAuth: false,
     authMode: 'none',
   },
+  startup: {
+    autoDetectable: true,
+    probeReadiness: 'openai-compatible-models',
+  },
   transportConfig: {
     kind: 'local',
     openaiShim: {

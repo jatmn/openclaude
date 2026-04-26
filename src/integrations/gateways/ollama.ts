@@ -10,6 +10,10 @@ export default defineGateway({
     requiresAuth: false,
     authMode: 'none',
   },
+  startup: {
+    autoDetectable: true,
+    probeReadiness: 'ollama-generation',
+  },
   transportConfig: {
     kind: 'local',
     openaiShim: {

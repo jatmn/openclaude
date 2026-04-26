@@ -56,6 +56,7 @@ export interface CacheConfig {
 export type ModelCatalogSource = 'static' | 'dynamic' | 'hybrid'
 export type DurationString = `${number}m` | `${number}h` | `${number}d`
 export type DiscoveryRefreshMode = 'manual' | 'on-open' | 'background-if-stale' | 'startup'
+export type ReadinessProbeKind = 'ollama-generation' | 'openai-compatible-models'
 
 export interface ModelCatalogEntry {
   id: string
@@ -99,7 +100,7 @@ export interface SetupMetadata {
 
 export interface StartupMetadata {
   autoDetectable?: boolean
-  probeReadiness?: string
+  probeReadiness?: ReadinessProbeKind
   enablementEnvVar?: string
 }
 

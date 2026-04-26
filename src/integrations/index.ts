@@ -165,3 +165,18 @@ export {
 export { routeForPreset, vendorIdForPreset, gatewayIdForPreset } from './compatibility.js'
 export { resolveProfileRoute } from './profileResolver.js'
 export type { ResolvedProfileRoute } from './profileResolver.js'
+export {
+  getRouteDefaultBaseUrl,
+  getRouteDefaultModel,
+  getRouteDescriptor,
+  getRouteLabel,
+  getRouteProviderTypeLabel,
+  getTransportKindForRoute,
+  resolveActiveRouteIdFromEnv,
+  resolveRouteIdFromBaseUrl,
+  routeSupportsCustomHeaders,
+} from './routeMetadata.js'
+export {
+  getProviderPresetUiMetadata,
+  ORDERED_PROVIDER_PRESETS,
+} from './providerUiMetadata.js'

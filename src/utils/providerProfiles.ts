@@ -22,6 +22,7 @@ import {
   type ProviderProfile as ProviderProfileStartup,
 } from './providerProfile.js'
 import {
+  getProviderPresetUiMetadata,
   resolveProfileRoute,
   type ResolvedProfileRoute,
 } from '../integrations/index.js'
@@ -61,8 +62,6 @@ export type ProviderPresetDefaults = Omit<ProviderProfileInput, 'provider'> & {
   requiresApiKey: boolean
 }
 
-const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434/v1'
-const DEFAULT_OLLAMA_MODEL = 'llama3.1:8b'
 const PROFILE_ENV_APPLIED_FLAG = 'CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED'
 const PROFILE_ENV_APPLIED_ID = 'CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID'
 
@@ -181,191 +180,14 @@ function getModelCacheByProfile(
 export function getProviderPresetDefaults(
   preset: ProviderPreset,
 ): ProviderPresetDefaults {
-  switch (preset) {
-    case 'anthropic':
-      return {
-        provider: 'anthropic',
-        name: 'Anthropic',
-        baseUrl: process.env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com',
-        model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
-        apiKey: process.env.ANTHROPIC_API_KEY ?? '',
-        requiresApiKey: true,
-      }
-    case 'openai':
-      return {
-        provider: 'openai',
-        name: 'OpenAI',
-        baseUrl: 'https://api.openai.com/v1',
-        model: 'gpt-5.4',
-        apiKey: '',
-        requiresApiKey: true,
-      }
-    case 'kimi-code':
-      return {
-        provider: 'openai',
-        name: 'Moonshot AI - Kimi Code',
-        baseUrl: 'https://api.kimi.com/coding/v1',
-        model: 'kimi-for-coding',
-        apiKey: '',
-        requiresApiKey: true,
-      }
-    case 'moonshotai':
-      return {
-        provider: 'openai',
-        name: 'Moonshot AI - API',
-        baseUrl: 'https://api.moonshot.ai/v1',
-        model: 'kimi-k2.5',
-        apiKey: '',
-        requiresApiKey: true,
-      }
-    case 'deepseek':
-      return {
-        provider: 'openai',
-        name: 'DeepSeek',
-        baseUrl: 'https://api.deepseek.com/v1',
-        model: 'deepseek-v4-flash, deepseek-v4-pro, deepseek-chat, deepseek-reasoner',
-        apiKey: '',
-        requiresApiKey: true,
-      }
-    case 'gemini':
-      return {
-        provider: 'gemini',
-        name: 'Google Gemini',
-        baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-        model: 'gemini-3-flash-preview',
-        apiKey: '',
-        requiresApiKey: true,
-      }
-    case 'mistral':
-      return {
-        provider: 'mistral',
-        name: 'Mistral',
-        baseUrl: 'https://api.mistral.ai/v1',
-        model: 'devstral-latest',
-        apiKey: '',
-        requiresApiKey: true
-      }
-    case 'together':
-      return {
-        provider: 'openai',
-        name: 'Together AI',
-        baseUrl: 'https://api.together.xyz/v1',
-        model: 'Qwen/Qwen3.5-9B',
-        apiKey: '',
-        requiresApiKey: true,
-      }
-    case 'groq':
-      return {
-        provider: 'openai',
-        name: 'Groq',
-        baseUrl: 'https://api.groq.com/openai/v1',
-        model: 'llama-3.3-70b-versatile',
-        apiKey: '',
-        requiresApiKey: true,
-      }
-    case 'azure-openai':
-      return {
-        provider: 'openai',
-        name: 'Azure OpenAI',
-        baseUrl: 'https://YOUR-RESOURCE-NAME.openai.azure.com/openai/v1',
-        model: 'YOUR-DEPLOYMENT-NAME',
-        apiKey: '',
-        requiresApiKey: true,
-      }
-    case 'openrouter':
-      return {
-        provider: 'openai',
-        name: 'OpenRouter',
-        baseUrl: 'https://openrouter.ai/api/v1',
-        model: 'openai/gpt-5-mini',
-        apiKey: '',
-        requiresApiKey: true,
-      }
-    case 'lmstudio':
-      return {
-        provider: 'openai',
-        name: 'LM Studio',
-        baseUrl: 'http://localhost:1234/v1',
-        model: 'local-model',
-        apiKey: '',
-        requiresApiKey: false,
-      }
-    case 'dashscope-cn':
-      return {
-        provider: 'openai',
-        name: 'Alibaba Coding Plan (China)',
-        baseUrl: 'https://coding.dashscope.aliyuncs.com/v1',
-        model: 'qwen3.6-plus',
-        apiKey: process.env.DASHSCOPE_API_KEY ?? '',
-        requiresApiKey: true,
-      }
-    case 'dashscope-intl':
-      return {
-        provider: 'openai',
-        name: 'Alibaba Coding Plan',
-        baseUrl: 'https://coding-intl.dashscope.aliyuncs.com/v1',
-        model: 'qwen3.6-plus',
-        apiKey: process.env.DASHSCOPE_API_KEY ?? '',
-        requiresApiKey: true,
-      }
-    case 'custom':
-      return {
-        provider: 'openai',
-        name: 'Custom OpenAI-compatible',
-        baseUrl:
-          process.env.OPENAI_BASE_URL ??
-          process.env.OPENAI_API_BASE ??
-          DEFAULT_OLLAMA_BASE_URL,
-        model: process.env.OPENAI_MODEL ?? DEFAULT_OLLAMA_MODEL,
-        apiKey: process.env.OPENAI_API_KEY ?? '',
-        requiresApiKey: false,
-      }
-    case 'nvidia-nim':
-      return {
-        provider: 'openai',
-        name: 'NVIDIA NIM',
-        baseUrl: 'https://integrate.api.nvidia.com/v1',
-        model: 'nvidia/llama-3.1-nemotron-70b-instruct',
-        apiKey: process.env.NVIDIA_API_KEY ?? '',
-        requiresApiKey: true,
-      }
-    case 'minimax':
-      return {
-        provider: 'openai',
-        name: 'MiniMax',
-        baseUrl: 'https://api.minimax.io/v1',
-        model: 'MiniMax-M2.5',
-        apiKey: process.env.MINIMAX_API_KEY ?? '',
-        requiresApiKey: true,
-      }
-    case 'atomic-chat':
-      return {
-        provider: 'openai',
-        name: 'Atomic Chat',
-        baseUrl: 'http://127.0.0.1:1337/v1',
-        model: process.env.OPENAI_MODEL ?? 'local-model',
-        apiKey: '',
-        requiresApiKey: false,
-      }
-    case 'bankr':
-      return {
-        provider: 'openai',
-        name: 'Bankr',
-        baseUrl: 'https://llm.bankr.bot/v1',
-        model: process.env.BANKR_MODEL ?? 'claude-opus-4.6',
-        apiKey: process.env.BNKR_API_KEY ?? '',
-        requiresApiKey: true,
-      }
-    case 'ollama':
-    default:
-      return {
-        provider: 'openai',
-        name: 'Ollama',
-        baseUrl: DEFAULT_OLLAMA_BASE_URL,
-        model: process.env.OPENAI_MODEL ?? DEFAULT_OLLAMA_MODEL,
-        apiKey: '',
-        requiresApiKey: false,
-      }
+  const metadata = getProviderPresetUiMetadata(preset)
+  return {
+    provider: metadata.provider,
+    name: metadata.name,
+    baseUrl: metadata.baseUrl,
+    model: metadata.model,
+    apiKey: metadata.apiKey,
+    requiresApiKey: metadata.requiresApiKey,
   }
 }
 

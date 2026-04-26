@@ -664,7 +664,7 @@ describe('getProviderPresetDefaults', () => {
 
     const defaults = getProviderPresetDefaults('atomic-chat')
 
-    expect(defaults.provider).toBe('openai')
+    expect(defaults.provider).toBe('atomic-chat')
     expect(defaults.name).toBe('Atomic Chat')
     expect(defaults.baseUrl).toBe('http://127.0.0.1:1337/v1')
     expect(defaults.requiresApiKey).toBe(false)
@@ -675,7 +675,7 @@ describe('getProviderPresetDefaults', () => {
 
     const defaults = getProviderPresetDefaults('kimi-code')
 
-    expect(defaults.provider).toBe('openai')
+    expect(defaults.provider).toBe('kimi-code')
     expect(defaults.name).toBe('Moonshot AI - Kimi Code')
     expect(defaults.baseUrl).toBe('https://api.kimi.com/coding/v1')
     expect(defaults.model).toBe('kimi-for-coding')
@@ -696,7 +696,7 @@ describe('getProviderPresetDefaults', () => {
 
     const defaults = getProviderPresetDefaults('deepseek')
 
-    expect(defaults.provider).toBe('openai')
+    expect(defaults.provider).toBe('deepseek')
     expect(defaults.name).toBe('DeepSeek')
     expect(defaults.baseUrl).toBe('https://api.deepseek.com/v1')
     expect(defaults.model).toBe(

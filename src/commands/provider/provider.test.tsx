@@ -24,6 +24,14 @@ const ORIGINAL_CODEX_API_KEY = process.env.CODEX_API_KEY
 const ORIGINAL_CHATGPT_ACCOUNT_ID = process.env.CHATGPT_ACCOUNT_ID
 const ORIGINAL_CODEX_ACCOUNT_ID = process.env.CODEX_ACCOUNT_ID
 
+async function importFreshProviderProfileModule(
+  suffix: string,
+): Promise<typeof import('../../utils/providerProfile.js')> {
+  return import(`../../utils/providerProfile.js?${suffix}`) as Promise<
+    typeof import('../../utils/providerProfile.js')
+  >
+}
+
 function extractLastFrame(output: string): string {
   let lastFrame: string | null = null
   let cursor = 0
@@ -275,7 +283,7 @@ test('buildProfileSaveMessage maps provider fields without echoing secrets', () 
     'D:/codings/Opensource/openclaude/.openclaude-profile.json',
   )
 
-  expect(message).toContain('Saved OpenAI-compatible profile.')
+  expect(message).toContain('Saved OpenAI profile.')
   expect(message).toContain('Model: gpt-4o')
   expect(message).toContain('Endpoint: https://api.openai.com/v1')
   expect(message).toContain('Credentials: configured')
@@ -383,9 +391,8 @@ test('buildCodexProfileEnv derives oauth source from secure storage when no expl
     }),
   }))
 
-  // @ts-expect-error cache-busting query string for Bun module mocks
-  const { buildCodexProfileEnv } = await import(
-    '../../utils/providerProfile.js?secure-storage-codex-source'
+  const { buildCodexProfileEnv } = await importFreshProviderProfileModule(
+    'secure-storage-codex-source',
   )
 
   const env = buildCodexProfileEnv({
@@ -402,10 +409,10 @@ test('buildCodexProfileEnv derives oauth source from secure storage when no expl
 })
 
 test('explicitly declared env takes precedence over applySavedProfileToCurrentSession', async () => {
-  // @ts-expect-error cache-busting query string for Bun module mocks
-  const { applySavedProfileToCurrentSession } = await import(
-    '../../utils/providerProfile.js?apply-saved-profile-codex'
-  )
+  const { applySavedProfileToCurrentSession } =
+    await importFreshProviderProfileModule(
+      'apply-saved-profile-codex',
+    )
   const processEnv: NodeJS.ProcessEnv = {
     CLAUDE_CODE_USE_OPENAI: '1',
     OPENAI_MODEL: 'gpt-4o',
@@ -441,11 +448,11 @@ test('explicitly declared env takes precedence over applySavedProfileToCurrentSe
   expect(processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID).toBeUndefined()
 })
 
-test('explicitly declared env takes precedence over applySavedProfileToCurrentSession', async () => {
-  // @ts-expect-error cache-busting query string for Bun module mocks
-  const { applySavedProfileToCurrentSession } = await import(
-    '../../utils/providerProfile.js?apply-saved-profile-codex-oauth'
-  )
+test('explicitly declared env takes precedence over applySavedProfileToCurrentSession for oauth codex profiles', async () => {
+  const { applySavedProfileToCurrentSession } =
+    await importFreshProviderProfileModule(
+      'apply-saved-profile-codex-oauth',
+    )
   const processEnv: NodeJS.ProcessEnv = {
     CLAUDE_CODE_USE_OPENAI: '1',
     OPENAI_MODEL: 'gpt-4o',

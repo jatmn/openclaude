@@ -1,10 +1,10 @@
 # OpenClaude Descriptor Migration — Progress Tracker
 
 **Master Plan**: [`plan/cheeky-cooking-moon.md`](./cheeky-cooking-moon.md)
-**Current Phase**: Phase 1 — Foundation and Parity
-**Next Planned Phase**: Phase 2 — Runtime Metadata Adoption
+**Current Phase**: Phase 2 — Runtime Metadata Adoption
+**Next Planned Phase**: Phase 2D — Runtime Provider Detection Alignment
 **Goal**: Establish the descriptor system without regressing current behavior. Get all metadata into one place before deeper runtime migration starts.
-**Last Updated**: 2026-04-25 17:28
+**Last Updated**: 2026-04-25 18:30
 
 ---
 
@@ -284,25 +284,28 @@ Notes:
 
 ## Phase 2C: Provider UI Metadata Migration
 
-**Status**: `BLOCKED`
+**Status**: `COMPLETE`
 
-- [ ] Replace hardcoded preset labels/defaults with descriptor lookups
-- [ ] Drive auth/setup prompts from descriptor metadata
-- [ ] Wire custom-header capability flags into the custom-provider flow
-- [ ] Make `/model` read active route catalog entries instead of global model availability
-- [ ] Call `getCachedModels` before rendering `/model` for dynamic/hybrid routes so cached discovered models appear immediately
-- [ ] Call `isCacheStale` to trigger background refresh when picker opens
-- [ ] Add `/model refresh` command to force model discovery refresh for the active route
-- [ ] Add an in-picker refresh action for model discovery, such as pressing `r`
-- [ ] Call `clearDiscoveryCache(routeId)` from `/model refresh` and in-picker refresh handlers
-- [ ] Show non-blocking refresh states: loading, success, failure with stale cache, and no changes found
-- [ ] Surface `entry.error` in the picker UI when refresh failed but stale data exists
-- [ ] Keep any UX-only branching that is truly presentational
-- [ ] Verify the `/provider` experience remains understandable after metadata migration
+- [x] Replace hardcoded preset labels/defaults with descriptor lookups
+- [x] Drive auth/setup prompts from descriptor metadata
+- [x] Wire custom-header capability flags into the custom-provider flow
+- [x] Make `/model` read active route catalog entries instead of global model availability
+- [x] Call `getCachedModels` before rendering `/model` for dynamic/hybrid routes so cached discovered models appear immediately
+- [x] Call `isCacheStale` to trigger background refresh when picker opens
+- [x] Add `/model refresh` command to force model discovery refresh for the active route
+- [x] Add an in-picker refresh action for model discovery, such as pressing `r`
+- [x] Call `clearDiscoveryCache(routeId)` from `/model refresh` and in-picker refresh handlers
+- [x] Show non-blocking refresh states: loading, success, failure with stale cache, and no changes found
+- [x] Surface `entry.error` in the picker UI when refresh failed but stale data exists
+- [x] Keep any UX-only branching that is truly presentational
+- [x] Verify the `/provider` experience remains understandable after metadata migration
 
 Notes:
 - Unblock after `2A.5` and the first round of `2B` discovery/readiness helpers are stable enough for UI consumers.
 - Work this packet in two slices: descriptor-backed provider labels/setup first, then `/model` cache/refresh UX second.
+- Active work resumed on 2026-04-25. First slice is migrating preset labels/defaults/setup copy onto descriptor metadata before rewiring `/model` to the discovery cache service.
+- Focused Phase 2C verification resumed on 2026-04-25 18:24 after isolating a combined-run Bun mock leak from `src/commands/model/model.test.tsx`; the `/model` tests now rely on the real OpenRouter descriptor route metadata so `/provider` summary tests keep seeing the real OpenAI and Gemini labels during the shared targeted run.
+- Phase 2C was completed on 2026-04-25 18:30 after the shared targeted suite, focused `/provider` and `/model` test reruns, filtered typecheck pass for the touched Phase 2C files, and regression checks for `src/integrations/discoveryCache.test.ts` plus `src/utils/providerValidation.test.ts`.
 
 ---
 
@@ -357,7 +360,7 @@ Notes:
 
 ## Quick Reference: Files Created in Phase 1
 
-```
+```text
 src/integrations/
   descriptors.ts
   define.ts

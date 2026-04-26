@@ -176,6 +176,7 @@ export interface GatewayDescriptor {
   label: string
   category?: 'local' | 'hosted' | 'aggregating'
   defaultBaseUrl?: string
+  defaultModel?: string | string[]
   supportsModelRouting?: boolean
   setup: SetupMetadata
   startup?: StartupMetadata

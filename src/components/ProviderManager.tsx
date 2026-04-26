@@ -18,6 +18,14 @@ import {
   createProfileFile,
 } from '../utils/providerProfile.js'
 import {
+  getProviderPresetUiMetadata,
+  getRouteProviderTypeLabel,
+  ORDERED_PROVIDER_PRESETS,
+  routeSupportsCustomHeaders,
+  resolveProfileRoute,
+} from '../integrations/index.js'
+import { probeRouteReadiness } from '../integrations/discoveryService.js'
+import {
   addProviderProfile,
   applyActiveProviderProfileFromConfig,
   deleteProviderProfile,
@@ -36,7 +44,6 @@ import {
   readGithubModelsToken,
   readGithubModelsTokenAsync,
 } from '../utils/githubModelsCredentials.js'
-import { probeRouteReadiness } from '../integrations/discoveryService.js'
 import {
   type AtomicChatReadiness,
   type OllamaGenerationReadiness,
@@ -167,8 +174,9 @@ function presetToDraft(preset: ProviderPreset): ProviderDraft {
 function profileSummary(profile: ProviderProfile, isActive: boolean): string {
   const activeSuffix = isActive ? ' (active)' : ''
   const keyInfo = profile.apiKey ? 'key set' : 'no key'
-  const providerKind =
-    profile.provider === 'anthropic' ? 'anthropic' : 'openai-compatible'
+  const providerKind = getRouteProviderTypeLabel(
+    resolveProfileRoute(profile.provider).routeId,
+  )
   const models = parseModelList(profile.model)
   const modelDisplay =
     models.length <= 3
@@ -1254,131 +1262,31 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
 
   function renderPresetSelection(): React.ReactNode {
     const canUseCodexOAuth = !isBareMode()
-    // Providers sorted alphabetically by label. `Custom` is pinned to the end
-    // because it's the catch-all / escape hatch — users scanning the list
-    // should always find known providers first. `Skip for now` (first-run
-    // only) comes last, after Custom.
-    const options = [
-      {
-        value: 'dashscope-intl',
-        label: 'Alibaba Coding Plan',
-        description: 'Alibaba DashScope International endpoint',
-      },
-      {
-        value: 'dashscope-cn',
-        label: 'Alibaba Coding Plan (China)',
-        description: 'Alibaba DashScope China endpoint',
-      },
-      {
-        value: 'anthropic',
-        label: 'Anthropic',
-        description: 'Native Claude API (x-api-key auth)',
-      },
-      {
-        value: 'atomic-chat',
-        label: 'Atomic Chat',
-        description: 'Local Model Provider',
-      },
-      {
-        value: 'azure-openai',
-        label: 'Azure OpenAI',
-        description: 'Azure OpenAI endpoint (model=deployment name)',
-      },
-      {
-        value: 'bankr',
-        label: 'Bankr',
-        description: 'Bankr LLM Gateway (OpenAI-compatible)',
-      },
-      ...(canUseCodexOAuth
-        ? [
-            {
-              value: 'codex-oauth',
-              label: 'Codex OAuth',
-              description:
-                'Sign in with ChatGPT in your browser and store Codex credentials securely',
-            },
-          ]
-        : []),
-      {
-        value: 'deepseek',
-        label: 'DeepSeek',
-        description: 'DeepSeek OpenAI-compatible endpoint',
-      },
-      {
-        value: 'gemini',
-        label: 'Google Gemini',
-        description: 'Gemini OpenAI-compatible endpoint',
-      },
-      {
-        value: 'groq',
-        label: 'Groq',
-        description: 'Groq OpenAI-compatible endpoint',
-      },
-      {
-        value: 'lmstudio',
-        label: 'LM Studio',
-        description: 'Local LM Studio endpoint',
-      },
-      {
-        value: 'minimax',
-        label: 'MiniMax',
-        description: 'MiniMax API endpoint',
-      },
-      {
-        value: 'mistral',
-        label: 'Mistral',
-        description: 'Mistral OpenAI-compatible endpoint',
-      },
-      {
-        value: 'moonshotai',
-        label: 'Moonshot AI - API',
-        description: 'Moonshot AI - API endpoint',
-      },
-      {
-        value: 'kimi-code',
-        label: 'Moonshot AI - Kimi Code',
-        description: 'Moonshot AI - Kimi Code Subscription endpoint',
-      },
-      {
-        value: 'nvidia-nim',
-        label: 'NVIDIA NIM',
-        description: 'NVIDIA NIM endpoint',
-      },
-      {
-        value: 'ollama',
-        label: 'Ollama',
-        description: 'Local or remote Ollama endpoint',
-      },
-      {
-        value: 'openai',
-        label: 'OpenAI',
-        description: 'OpenAI API with API key',
-      },
-      {
-        value: 'openrouter',
-        label: 'OpenRouter',
-        description: 'OpenRouter OpenAI-compatible endpoint',
-      },
-      {
-        value: 'together',
-        label: 'Together AI',
-        description: 'Together chat/completions endpoint',
-      },
-      {
-        value: 'custom',
-        label: 'Custom',
-        description: 'Any OpenAI-compatible provider',
-      },
-      ...(mode === 'first-run'
-        ? [
-            {
-              value: 'skip',
-              label: 'Skip for now',
-              description: 'Continue with current defaults',
-            },
-          ]
-        : []),
-    ]
+    const options: OptionWithDescription<string>[] = ORDERED_PROVIDER_PRESETS.map(preset => {
+      const metadata = getProviderPresetUiMetadata(preset)
+      return {
+        value: preset,
+        label: metadata.label,
+        description: metadata.description,
+      }
+    })
+
+    if (canUseCodexOAuth) {
+      options.splice(6, 0, {
+        value: 'codex-oauth',
+        label: 'Codex OAuth',
+        description:
+          'Sign in with ChatGPT in your browser and store Codex credentials securely',
+      })
+    }
+
+    if (mode === 'first-run') {
+      options.push({
+        value: 'skip',
+        label: 'Skip for now',
+        description: 'Continue with current defaults',
+      })
+    }
 
     return (
       <Box flexDirection="column" gap={1}>
@@ -1423,10 +1331,14 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
         <Text dimColor>{currentStep.helpText}</Text>
         <Text dimColor>
           Provider type:{' '}
-          {draftProvider === 'anthropic'
-            ? 'Anthropic native API'
-            : 'OpenAI-compatible API'}
+          {getRouteProviderTypeLabel(resolveProfileRoute(draftProvider).routeId)}
         </Text>
+        {routeSupportsCustomHeaders(resolveProfileRoute(draftProvider).routeId) ? (
+          <Text dimColor>
+            Advanced: this provider supports custom request headers when you
+            need them.
+          </Text>
+        ) : null}
         <Text dimColor>
           Step {formStepIndex + 1} of {FORM_STEPS.length}: {currentStep.label}
         </Text>

@@ -6,25 +6,17 @@ import {
   type DiscoveryCacheError,
 } from './discoveryCache.js'
 import type {
-  GatewayDescriptor,
   ModelCatalogConfig,
   ModelCatalogEntry,
   ReadinessProbeKind,
-  VendorDescriptor,
 } from './descriptors.js'
-import {
-  ensureIntegrationsLoaded,
-  getAllGateways,
-  getAllVendors,
-  getGateway,
-  getVendor,
-} from './index.js'
+import { resolveRouteIdFromBaseUrl } from './index.js'
+import { getRouteDescriptor } from './routeMetadata.js'
 import type {
   AtomicChatReadiness,
   OllamaGenerationReadiness,
 } from '../utils/providerDiscovery.js'
 import {
-  getLocalOpenAICompatibleProviderLabel,
   listOpenAICompatibleModels,
   probeOllamaModelCatalog,
   probeAtomicChatReadiness,
@@ -49,79 +41,14 @@ export type RouteReadinessResult =
   | AtomicChatReadiness
   | OpenAICompatibleReadiness
 
-type RouteDescriptor =
-  | { kind: 'vendor'; descriptor: VendorDescriptor }
-  | { kind: 'gateway'; descriptor: GatewayDescriptor }
-
-function normalizeComparableBaseUrl(
-  baseUrl?: string,
-): string | null {
-  if (!baseUrl?.trim()) {
-    return null
-  }
-
-  try {
-    const parsed = new URL(baseUrl)
-    parsed.hash = ''
-    return parsed.toString().replace(/\/+$/, '').toLowerCase()
-  } catch {
-    return baseUrl.trim().replace(/\/+$/, '').toLowerCase() || null
-  }
-}
-
-function getRouteDescriptor(routeId: string): RouteDescriptor | null {
-  ensureIntegrationsLoaded()
-
-  const gateway = getGateway(routeId)
-  if (gateway) {
-    return { kind: 'gateway', descriptor: gateway }
-  }
-
-  const vendor = getVendor(routeId)
-  if (vendor) {
-    return { kind: 'vendor', descriptor: vendor }
-  }
-
-  return null
-}
-
 function getRouteCatalog(routeId: string): ModelCatalogConfig | null {
-  return getRouteDescriptor(routeId)?.descriptor.catalog ?? null
+  return getRouteDescriptor(routeId)?.catalog ?? null
 }
 
 export function resolveDiscoveryRouteIdFromBaseUrl(
   baseUrl?: string,
 ): string | null {
-  const normalizedBaseUrl = normalizeComparableBaseUrl(baseUrl)
-  if (!normalizedBaseUrl) {
-    return null
-  }
-
-  ensureIntegrationsLoaded()
-
-  const descriptorBackedRoutes = [
-    ...getAllGateways(),
-    ...getAllVendors(),
-  ].filter(route => route.catalog?.discovery)
-
-  for (const route of descriptorBackedRoutes) {
-    const normalizedDefaultBaseUrl = normalizeComparableBaseUrl(
-      route.defaultBaseUrl,
-    )
-    if (normalizedDefaultBaseUrl === normalizedBaseUrl) {
-      return route.id
-    }
-  }
-
-  const providerLabel = getLocalOpenAICompatibleProviderLabel(baseUrl)
-  if (providerLabel === 'Ollama') {
-    return 'ollama'
-  }
-  if (providerLabel === 'LM Studio') {
-    return 'lmstudio'
-  }
-
-  return null
+  return resolveRouteIdFromBaseUrl(baseUrl, { requireDiscovery: true })
 }
 
 function getCatalogEntries(
@@ -143,7 +70,7 @@ function getRouteBaseUrl(
   routeId: string,
   options?: { baseUrl?: string },
 ): string | undefined {
-  return options?.baseUrl ?? getRouteDescriptor(routeId)?.descriptor.defaultBaseUrl
+  return options?.baseUrl ?? getRouteDescriptor(routeId)?.defaultBaseUrl
 }
 
 function getRouteDiscoveryApiKey(
@@ -154,7 +81,7 @@ function getRouteDiscoveryApiKey(
     return options.apiKey.trim()
   }
 
-  const descriptor = getRouteDescriptor(routeId)?.descriptor
+  const descriptor = getRouteDescriptor(routeId)
   const envVars = descriptor?.setup.credentialEnvVars ?? []
   for (const envVar of envVars) {
     const value = process.env[envVar]?.trim()
@@ -322,7 +249,7 @@ export async function discoverModelsForRoute(
 }
 
 function getReadinessProbeKind(routeId: string): ReadinessProbeKind | null {
-  return getRouteDescriptor(routeId)?.descriptor.startup?.probeReadiness ?? null
+  return getRouteDescriptor(routeId)?.startup?.probeReadiness ?? null
 }
 
 export function probeRouteReadiness(

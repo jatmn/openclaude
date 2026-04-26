@@ -14,6 +14,8 @@ const originalEnv = {
   CLAUDE_CODE_USE_MISTRAL: process.env.CLAUDE_CODE_USE_MISTRAL,
   MISTRAL_API_KEY: process.env.MISTRAL_API_KEY,
   MINIMAX_API_KEY: process.env.MINIMAX_API_KEY,
+  NVIDIA_API_KEY: process.env.NVIDIA_API_KEY,
+  NVIDIA_NIM: process.env.NVIDIA_NIM,
   BNKR_API_KEY: process.env.BNKR_API_KEY,
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
   GH_TOKEN: process.env.GH_TOKEN,
@@ -41,6 +43,8 @@ afterEach(() => {
   restoreEnv('CLAUDE_CODE_USE_MISTRAL', originalEnv.CLAUDE_CODE_USE_MISTRAL)
   restoreEnv('MISTRAL_API_KEY', originalEnv.MISTRAL_API_KEY)
   restoreEnv('MINIMAX_API_KEY', originalEnv.MINIMAX_API_KEY)
+  restoreEnv('NVIDIA_API_KEY', originalEnv.NVIDIA_API_KEY)
+  restoreEnv('NVIDIA_NIM', originalEnv.NVIDIA_NIM)
   restoreEnv('BNKR_API_KEY', originalEnv.BNKR_API_KEY)
   restoreEnv('GITHUB_TOKEN', originalEnv.GITHUB_TOKEN)
   restoreEnv('GH_TOKEN', originalEnv.GH_TOKEN)
@@ -144,6 +148,25 @@ test('minimax validation accepts MINIMAX_API_KEY on minimax chat host alias', as
   process.env.CLAUDE_CODE_USE_OPENAI = '1'
   process.env.OPENAI_BASE_URL = 'https://api.minimax.chat/v1'
   process.env.MINIMAX_API_KEY = 'minimax-live-key'
+  delete process.env.OPENAI_API_KEY
+
+  await expect(getProviderValidationError(process.env)).resolves.toBeNull()
+})
+
+test('nvidia nim validation accepts NVIDIA_API_KEY without OPENAI_API_KEY', async () => {
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.OPENAI_BASE_URL = 'https://integrate.api.nvidia.com/v1'
+  process.env.NVIDIA_API_KEY = 'nvidia-live-key'
+  delete process.env.OPENAI_API_KEY
+
+  await expect(getProviderValidationError(process.env)).resolves.toBeNull()
+})
+
+test('nvidia nim validation accepts NVIDIA_API_KEY for custom NIM endpoints when NVIDIA_NIM is set', async () => {
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.NVIDIA_NIM = '1'
+  process.env.OPENAI_BASE_URL = 'https://nim.example.com/v1'
+  process.env.NVIDIA_API_KEY = 'nvidia-live-key'
   delete process.env.OPENAI_API_KEY
 
   await expect(getProviderValidationError(process.env)).resolves.toBeNull()

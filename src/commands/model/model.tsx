@@ -12,6 +12,7 @@ import {
   isCacheStale,
   parseDurationString,
 } from '../../integrations/discoveryCache.js'
+import type { ModelCatalogConfig } from '../../integrations/descriptors.js'
 import { discoverModelsForRoute } from '../../integrations/discoveryService.js'
 import {
   getRouteDescriptor,
@@ -122,6 +123,28 @@ function getOpenAIDiscoveryRequestOptions(): {
   }
 }
 
+export function shouldAutoRefreshRouteCatalog(options: {
+  catalog: ModelCatalogConfig
+  hasCachedModels: boolean
+  staticEntryCount: number
+  stale: boolean
+}): boolean {
+  const needsInitialDiscovery =
+    !options.hasCachedModels && options.staticEntryCount === 0
+
+  switch (options.catalog.discoveryRefreshMode) {
+    case 'manual':
+      return needsInitialDiscovery
+    case 'on-open':
+      return true
+    case 'startup':
+      return needsInitialDiscovery
+    case 'background-if-stale':
+    default:
+      return options.stale || !options.hasCachedModels
+  }
+}
+
 async function loadDescriptorDiscoveryContext(
   routeId: string,
 ): Promise<ModelDiscoveryContext | null> {
@@ -157,6 +180,12 @@ async function loadDescriptorDiscoveryContext(
   const ttlMs = parseDurationString(catalog.discoveryCacheTtl ?? 0)
   const cached = await getCachedModels(routeId, ttlMs, { includeStale: true })
   const stale = await isCacheStale(routeId, ttlMs)
+  const autoRefresh = shouldAutoRefreshRouteCatalog({
+    catalog,
+    hasCachedModels: cached !== null,
+    staticEntryCount: staticEntries.length,
+    stale,
+  })
   const mergedEntries = mergeRouteCatalogEntries(
     staticEntries,
     cached?.models ?? [],
@@ -169,7 +198,7 @@ async function loadDescriptorDiscoveryContext(
       message: `Showing cached ${routeLabel} models. Last refresh failed: ${cached.error.message}`,
       tone: 'warning',
     }
-  } else if (stale || !cached) {
+  } else if (autoRefresh) {
     discoveryState = {
       message: `Checking ${routeLabel} models…`,
       tone: 'info',
@@ -178,7 +207,7 @@ async function loadDescriptorDiscoveryContext(
 
   return {
     kind: 'descriptor',
-    autoRefresh: stale || !cached,
+    autoRefresh,
     canRefresh,
     discoveryState,
     optionsOverride: buildRouteCatalogModelOptions(routeLabel, mergedEntries),

@@ -16,6 +16,8 @@ const ENV_KEYS = [
   'OPENAI_API_KEY',
   'OPENAI_MODEL',
   'GEMINI_MODEL',
+  'NVIDIA_API_KEY',
+  'NVIDIA_NIM',
 ]
 
 const originalEnv: Record<string, string | undefined> = {}
@@ -37,6 +39,8 @@ const RESET_KEYS = [
   'OPENAI_API_KEY',
   'OPENAI_MODEL',
   'GEMINI_MODEL',
+  'NVIDIA_API_KEY',
+  'NVIDIA_NIM',
 ] as const
 
 beforeEach(() => {
@@ -214,6 +218,20 @@ describe('applyProviderFlag - minimax', () => {
     expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
     expect(process.env.OPENAI_BASE_URL).toBe('https://api.minimax.io/v1')
     expect(process.env.OPENAI_MODEL).toBe('MiniMax-M2.5')
+  })
+})
+
+describe('applyProviderFlag - nvidia-nim', () => {
+  test('maps NVIDIA_API_KEY into the OPENAI-compatible auth env when present', () => {
+    process.env.NVIDIA_API_KEY = 'nvidia-live-key'
+
+    const result = applyProviderFlag('nvidia-nim', [])
+
+    expect(result.error).toBeUndefined()
+    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
+    expect(process.env.NVIDIA_NIM).toBe('1')
+    expect(process.env.OPENAI_API_KEY).toBe('nvidia-live-key')
+    expect(process.env.OPENAI_BASE_URL).toBe('https://integrate.api.nvidia.com/v1')
   })
 })
 

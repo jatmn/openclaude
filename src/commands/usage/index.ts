@@ -4,6 +4,7 @@ import {
   getGateway,
   getVendor,
 } from '../../integrations/index.js'
+import { resolveActiveRouteIdFromEnv } from '../../integrations/routeMetadata.js'
 import type {
   GatewayDescriptor,
   UsageMetadata,
@@ -40,6 +41,30 @@ const RUNTIME_USAGE_LABELS: Record<string, string> = {
   firstParty: 'Anthropic',
   foundry: 'Microsoft Foundry',
   codex: 'Codex',
+}
+
+export function resolveActiveUsageId(
+  processEnv: NodeJS.ProcessEnv = process.env,
+  options?: {
+    activeProfileProvider?: string
+    providerCategory?: APIProvider | string
+  },
+): APIProvider | string {
+  const providerCategory = options?.providerCategory
+
+  if (
+    providerCategory === 'firstParty' ||
+    providerCategory === 'foundry' ||
+    providerCategory === 'codex'
+  ) {
+    return providerCategory
+  }
+
+  const routeId = resolveActiveRouteIdFromEnv(processEnv, {
+    activeProfileProvider: options?.activeProfileProvider,
+  })
+
+  return routeId ?? providerCategory ?? 'firstParty'
 }
 
 function getUsageTarget(

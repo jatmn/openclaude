@@ -20,6 +20,8 @@ const originalEnv = {
   GEMINI_MODEL: process.env.GEMINI_MODEL,
   GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT,
   ANTHROPIC_CUSTOM_HEADERS: process.env.ANTHROPIC_CUSTOM_HEADERS,
+  NVIDIA_API_KEY: process.env.NVIDIA_API_KEY,
+  NVIDIA_NIM: process.env.NVIDIA_NIM,
 }
 
 const originalFetch = globalThis.fetch
@@ -88,6 +90,8 @@ beforeEach(() => {
   delete process.env.GEMINI_MODEL
   delete process.env.GOOGLE_CLOUD_PROJECT
   delete process.env.ANTHROPIC_CUSTOM_HEADERS
+  delete process.env.NVIDIA_API_KEY
+  delete process.env.NVIDIA_NIM
 })
 
 afterEach(() => {
@@ -107,6 +111,8 @@ afterEach(() => {
   restoreEnv('GEMINI_MODEL', originalEnv.GEMINI_MODEL)
   restoreEnv('GOOGLE_CLOUD_PROJECT', originalEnv.GOOGLE_CLOUD_PROJECT)
   restoreEnv('ANTHROPIC_CUSTOM_HEADERS', originalEnv.ANTHROPIC_CUSTOM_HEADERS)
+  restoreEnv('NVIDIA_API_KEY', originalEnv.NVIDIA_API_KEY)
+  restoreEnv('NVIDIA_NIM', originalEnv.NVIDIA_NIM)
   globalThis.fetch = originalFetch
 })
 
@@ -961,6 +967,60 @@ test('uses GEMINI_ACCESS_TOKEN for Gemini OpenAI-compatible requests', async () 
   )
   expect(capturedAuthorization).toBe('Bearer gemini-access-token')
   expect(capturedProject).toBe('gemini-project')
+})
+
+test('uses NVIDIA_API_KEY for NVIDIA NIM requests without OPENAI_API_KEY', async () => {
+  let capturedAuthorization: string | null = null
+
+  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.NVIDIA_NIM = '1'
+  process.env.OPENAI_BASE_URL = 'https://integrate.api.nvidia.com/v1'
+  process.env.OPENAI_MODEL = 'nvidia/llama-3.1-nemotron-70b-instruct'
+  process.env.NVIDIA_API_KEY = 'nvidia-live-key'
+  delete process.env.OPENAI_API_KEY
+
+  globalThis.fetch = (async (_input, init) => {
+    const headers = init?.headers as Record<string, string> | undefined
+    capturedAuthorization =
+      headers?.Authorization ?? headers?.authorization ?? null
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-nvidia',
+        model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'ok',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 3,
+          completion_tokens: 1,
+          total_tokens: 4,
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    )
+  }) as FetchType
+
+  const client = createOpenAIShimClient({}) as OpenAIShimClient
+
+  await client.beta.messages.create({
+    model: 'nvidia/llama-3.1-nemotron-70b-instruct',
+    messages: [{ role: 'user', content: 'hello' }],
+    max_tokens: 32,
+    stream: false,
+  })
+
+  expect(capturedAuthorization).toBe('Bearer nvidia-live-key')
 })
 
 test('preserves Gemini tool call extra_content from streaming chunks', async () => {

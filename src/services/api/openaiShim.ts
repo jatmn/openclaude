@@ -145,6 +145,16 @@ function hasGeminiApiHost(baseUrl: string | undefined): boolean {
   }
 }
 
+function isNvidiaNimBaseUrl(baseUrl: string | undefined): boolean {
+  if (!baseUrl) return false
+
+  try {
+    return new URL(baseUrl).hostname.toLowerCase().includes('nvidia')
+  } catch {
+    return baseUrl.toLowerCase().includes('nvidia')
+  }
+}
+
 function normalizeDeepSeekReasoningEffort(
   effort: 'low' | 'medium' | 'high' | 'xhigh',
 ): 'high' | 'max' {
@@ -401,6 +411,15 @@ function hydrateOpenAIShimCompatibilityEnv(
     processEnv.OPENAI_API_KEY ??=
       processEnv.GITHUB_TOKEN ?? processEnv.GH_TOKEN ?? ''
     return
+  }
+
+  if (
+    processEnv.NVIDIA_API_KEY &&
+    !processEnv.OPENAI_API_KEY &&
+    (isEnvTruthy(processEnv.NVIDIA_NIM) ||
+      isNvidiaNimBaseUrl(processEnv.OPENAI_BASE_URL))
+  ) {
+    processEnv.OPENAI_API_KEY = processEnv.NVIDIA_API_KEY
   }
 
   if (processEnv.BNKR_API_KEY && !processEnv.OPENAI_API_KEY) {
@@ -1635,9 +1654,13 @@ class OpenAIShimMessages {
 
     const isGemini = isGeminiMode()
     const isMiniMax = !!process.env.MINIMAX_API_KEY
+    const isNvidiaNim =
+      runtimeShimContext.routeId === 'nvidia-nim' ||
+      isEnvTruthy(process.env.NVIDIA_NIM)
     const apiKey =
       this.providerOverride?.apiKey ??
       process.env.OPENAI_API_KEY ??
+      (isNvidiaNim ? process.env.NVIDIA_API_KEY : undefined) ??
       (isMiniMax ? process.env.MINIMAX_API_KEY : '')
     // Detect Azure endpoints by hostname (not raw URL) to prevent bypass via
     // path segments like https://evil.com/cognitiveservices.azure.com/

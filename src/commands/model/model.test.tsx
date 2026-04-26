@@ -51,12 +51,11 @@ test('opens the model picker without awaiting local model discovery refresh', as
   process.env.OPENAI_BASE_URL = 'http://127.0.0.1:8080/v1'
   process.env.OPENAI_MODEL = 'qwen2.5-coder-7b-instruct'
 
-  let resolveDiscovery: (() => void) | undefined
   const discoverOpenAICompatibleModelOptions = mock(
-    () =>
-      new Promise<void>(resolve => {
-        resolveDiscovery = resolve
-      }),
+    async () => {
+      await new Promise(resolve => setTimeout(resolve, 1_000))
+      return []
+    },
   )
 
   mock.module('../../utils/model/openaiModelDiscovery.js', () => ({
@@ -73,8 +72,6 @@ test('opens the model picker without awaiting local model discovery refresh', as
     call(() => {}, {} as never, ''),
     new Promise(resolve => setTimeout(() => resolve('timeout'), 50)),
   ])
-
-  resolveDiscovery?.()
 
   expect(result).not.toBe('timeout')
 })
@@ -126,6 +123,50 @@ test('opens the model picker without awaiting descriptor-backed route refresh', 
   ])
 
   expect(result).not.toBe('timeout')
+})
+
+test('shouldAutoRefreshRouteCatalog respects discovery refresh modes', async () => {
+  const { shouldAutoRefreshRouteCatalog } =
+    await importFreshModelModule('descriptor-refresh-modes')
+
+  expect(
+    shouldAutoRefreshRouteCatalog({
+      catalog: {
+        source: 'dynamic',
+        discovery: { kind: 'openai-compatible' },
+        discoveryRefreshMode: 'manual',
+      },
+      hasCachedModels: true,
+      staticEntryCount: 0,
+      stale: true,
+    }),
+  ).toBe(false)
+
+  expect(
+    shouldAutoRefreshRouteCatalog({
+      catalog: {
+        source: 'dynamic',
+        discovery: { kind: 'openai-compatible' },
+        discoveryRefreshMode: 'on-open',
+      },
+      hasCachedModels: true,
+      staticEntryCount: 1,
+      stale: false,
+    }),
+  ).toBe(true)
+
+  expect(
+    shouldAutoRefreshRouteCatalog({
+      catalog: {
+        source: 'dynamic',
+        discovery: { kind: 'openai-compatible' },
+        discoveryRefreshMode: 'startup',
+      },
+      hasCachedModels: true,
+      staticEntryCount: 0,
+      stale: true,
+    }),
+  ).toBe(false)
 })
 
 test('/model refresh clears descriptor cache and reports updates', async () => {

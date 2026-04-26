@@ -17,6 +17,16 @@ export default defineGateway({
       supportsUserCustomHeaders: true,
     },
   },
+  validation: {
+    kind: 'credential-env',
+    credentialEnvVars: ['NVIDIA_API_KEY'],
+    missingCredentialMessage:
+      'NVIDIA_API_KEY is required when using NVIDIA NIM.',
+    routing: {
+      enablementEnvVar: 'NVIDIA_NIM',
+      matchDefaultBaseUrl: true,
+    },
+  },
   catalog: {
     source: 'static',
     models: [

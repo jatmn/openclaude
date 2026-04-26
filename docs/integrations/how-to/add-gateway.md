@@ -35,6 +35,16 @@ Typical gateway cases:
 8. Only update compatibility/user-facing surfaces if the gateway should be
    selectable via a preset or legacy alias.
 
+Current branch note:
+
+- descriptor authoring is one-file or two-file, but the loader is still
+  explicitly wired in `src/integrations/index.ts`;
+- if the gateway should appear in preset-driven `/provider` flows, the
+  compatibility/UI follow-through still lives outside the descriptor file for
+  now;
+- treat those extra edits as temporary branch reality until the generated or
+  constrained loader work lands.
+
 ## Authoring rules
 
 Normal gateway examples should:
@@ -110,7 +120,7 @@ export default defineGateway({
 
 What this example covers:
 
-- one-file gateway onboarding;
+- one-file descriptor authoring;
 - hosted OpenAI-compatible routing;
 - required static custom headers;
 - optional user-supplied custom headers;

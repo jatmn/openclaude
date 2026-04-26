@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { getUsageDescriptor } from './index.js'
+import {
+  getUsageDescriptor,
+  resolveActiveUsageId,
+} from './index.js'
 import type {
   GatewayDescriptor,
   VendorDescriptor,
@@ -28,6 +31,33 @@ function createRegistry(options?: {
 }
 
 describe('getUsageDescriptor', () => {
+  test('resolveActiveUsageId preserves first-party and codex compatibility ids', () => {
+    expect(
+      resolveActiveUsageId(
+        {} as NodeJS.ProcessEnv,
+        { providerCategory: 'firstParty' },
+      ),
+    ).toBe('firstParty')
+    expect(
+      resolveActiveUsageId(
+        {} as NodeJS.ProcessEnv,
+        { providerCategory: 'codex' },
+      ),
+    ).toBe('codex')
+  })
+
+  test('resolveActiveUsageId keeps the descriptor route for openai-compatible gateways', () => {
+    expect(
+      resolveActiveUsageId(
+        {
+          CLAUDE_CODE_USE_OPENAI: '1',
+          OPENAI_BASE_URL: 'https://openrouter.ai/api/v1',
+        } as NodeJS.ProcessEnv,
+        { providerCategory: 'openai' },
+      ),
+    ).toBe('openrouter')
+  })
+
   test('resolves first-party usage support through the Anthropic vendor descriptor', () => {
     const descriptor = getUsageDescriptor('firstParty')
 

@@ -153,6 +153,11 @@ Notes:
 - Repo-wide `bun run typecheck` is still red in unrelated existing areas such as `src/__tests__/providerCounts.test.ts`, `src/assistant/sessionHistory.ts`, `src/bootstrap/state.ts`, and multiple `src/bridge/` and `src/cli/` files; that baseline issue is not a new Phase 1 blocker introduced by this branch.
 - Full review follow-up on 2026-04-25 20:01 fixed skipped provider-surface updates in `src/utils/status.tsx`, `src/utils/swarm/teammateModel.ts`, `src/utils/model/configs.ts`, and `src/utils/model/deprecation.ts`, with new focused tests in `src/utils/status.test.ts` and `src/utils/swarm/teammateModel.test.ts`.
 - On 2026-04-25, `1F` was formally closed with the repo-wide typecheck requirement waived as pre-existing repo debt outside the scoped descriptor-migration work on `cheeky-cooking-moon`.
+- Follow-up review on 2026-04-26 clarified that descriptor authoring is now
+  centralized, but fully additive one-file gateway onboarding is still not the
+  branch reality because `src/integrations/index.ts` loader wiring and some
+  preset/UI compatibility surfaces remain manual. The docs now call that out
+  explicitly instead of implying the end-state loader automation already landed.
 
 ---
 
